@@ -3,6 +3,7 @@
 **Tool completo per anonimizzazione e cambio IP automatico tramite rete Tor**
 
 ![Tor Anonymizer](https://img.shields.io/badge/Version-2.0-green)
+![License](https://img.shields.io/badge/License-MIT-blue)
 ![Platform](https://img.shields.io/badge/Platform-Kali%20Linux-purple)
 
 ## ✨ Caratteristiche

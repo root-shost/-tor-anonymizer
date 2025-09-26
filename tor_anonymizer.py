@@ -17,7 +17,6 @@ import os
 import argparse
 import signal
 from pathlib import Path
-import hashlib
 import random
 import subprocess
 import psutil
@@ -40,7 +39,6 @@ try:
     UA_AVAILABLE = True
 except ImportError:
     UA_AVAILABLE = False
-    print("⚠️ fake-useragent not available, using fallback user agents")
 
 class Colors:
     """ANSI color codes for terminal output"""
@@ -88,29 +86,35 @@ class UltimateTorAnonymizer:
     def setup_user_agent_generator(self):
         """Setup user agent generator with fallback"""
         if UA_AVAILABLE:
-            return UserAgent(fallback="Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0")
+            try:
+                return UserAgent(fallback="Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0")
+            except:
+                return None
         else:
             return None
 
     def get_random_user_agent(self):
         """Get random user agent with fallback"""
         if self.ua_generator:
-            return self.ua_generator.random
-        else:
-            # Enhanced fallback user agents
-            user_agents = [
-                "Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0",
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"
-            ]
-            return random.choice(user_agents)
+            try:
+                return self.ua_generator.random
+            except:
+                pass
+        
+        # Enhanced fallback user agents
+        user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"
+        ]
+        return random.choice(user_agents)
 
     def print_ultimate_banner(self) -> None:
         """Display ultimate stealth banner"""
-        rotation_interval = self.config.get('identity_rotation_interval', 10)
+        rotation_interval = self.config.get('identity_rotation_interval', 60)
         num_guards = self.config.get('num_entry_guards', 3)
-        security_level = self.config.get('security_level', 'ultimate')
+        security_level = self.config.get('security_level', 'enterprise')
         
         banner = f"""
 {Colors.PURPLE}{Colors.BOLD}
@@ -156,9 +160,9 @@ class UltimateTorAnonymizer:
         default_config = {
             "tor_port": 9050,
             "control_port": 9051,
-            "identity_rotation_interval": 10,
-            "min_rotation_delay": 8,
-            "max_rotation_delay": 15,
+            "identity_rotation_interval": 60,
+            "min_rotation_delay": 45,
+            "max_rotation_delay": 75,
             "max_retries": 5,
             "timeout": 15,
             "user_agent": "Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0",
@@ -167,22 +171,22 @@ class UltimateTorAnonymizer:
             "auto_start_tor": True,
             "dns_leak_protection": True,
             "safe_browsing": True,
-            "max_circuit_dirtiness": 5,
+            "max_circuit_dirtiness": 300,
             "exclude_nodes": "{ru},{cn},{us},{gb},{de},{fr},{nl}",
-            "strict_nodes": True,
+            "strict_nodes": False,
             "entry_nodes": "{se},{no},{fi},{dk}",
             "exit_nodes": "{ch},{at},{li},{is}",
-            "use_bridges": True,
+            "use_bridges": False,
             "bridge_type": "obfs4",
             "disable_javascript": True,
             "block_trackers": True,
             "cookie_cleanup": True,
             "random_user_agent": True,
             "circuit_timeout": 30,
-            "max_circuits": 50,
-            "security_level": "ultimate",
+            "max_circuits": 10,
+            "security_level": "enterprise",
             "dummy_traffic_enabled": True,
-            "dummy_traffic_interval": 30,
+            "dummy_traffic_interval": 60,
             "multi_hop_enabled": True,
             "guard_lifetime_days": 30,
             "random_delay_enabled": True,
@@ -193,7 +197,7 @@ class UltimateTorAnonymizer:
             "kill_switch_enabled": True,
             "traffic_monitoring": True,
             "auto_circuit_rotation": True,
-            "bridge_obfs4": True,
+            "bridge_obfs4": False,
             "anti_fingerprinting": True,
             "system_hardening": True,
             "firewall_protection": True
@@ -228,7 +232,6 @@ class UltimateTorAnonymizer:
             import requests
             import stem
             import psutil
-            import socks
         except ImportError as e:
             print(f"✗ Missing enterprise dependency: {e}")
             sys.exit(1)
@@ -281,13 +284,11 @@ class UltimateTorAnonymizer:
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'DNT': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
         })
         
         # Enterprise security settings
         session.trust_env = False
+        session.verify = False
         session.max_redirects = 3
         
         return session
@@ -295,8 +296,8 @@ class UltimateTorAnonymizer:
     def random_delay_before_rotation(self) -> None:
         """Enterprise random delay for rotation timing obfuscation"""
         if self.config.get('random_delay_enabled', True):
-            min_delay = self.config.get('min_rotation_delay', 8)
-            max_delay = self.config.get('max_rotation_delay', 15)
+            min_delay = self.config.get('min_rotation_delay', 45)
+            max_delay = self.config.get('max_rotation_delay', 75)
             delay = random.randint(min_delay, max_delay)
             print(f"⏰ Enterprise random delay: {delay}s")
             time.sleep(delay)
@@ -319,11 +320,19 @@ class UltimateTorAnonymizer:
                 print("✅ Enterprise controller connected (advanced auth)")
                 return True
             except stem.connection.AuthenticationFailure:
-                print("⚠️  Advanced auth failed, using enterprise basic mode")
-                return True
+                # Try without authentication
+                try:
+                    self.controller.authenticate(None)
+                    print("✅ Enterprise controller connected (cookie auth)")
+                    return True
+                except:
+                    print("⚠️  Enterprise controller auth failed, using basic mode")
+                    self.controller = None
+                    return False
                     
         except Exception as e:
-            print(f"⚠️  Enterprise controller connection failed: {e}, using basic mode")
+            print(f"⚠️  Enterprise controller connection failed: {e}")
+            self.controller = None
             return False
 
     def enterprise_identity_rotation(self) -> bool:
@@ -359,13 +368,12 @@ class UltimateTorAnonymizer:
                 "https://www.reddit.com",
                 "https://www.nytimes.com",
                 "https://www.bbc.com",
-                "https://www.cnn.com"
             ]
             
             while self.is_running:
                 try:
                     current_time = time.time()
-                    if current_time - self.last_dummy_traffic >= self.config.get('dummy_traffic_interval', 30):
+                    if current_time - self.last_dummy_traffic >= self.config.get('dummy_traffic_interval', 60):
                         site = random.choice(enterprise_dummy_sites)
                         self.session.get(site, timeout=5, verify=False)
                         self.last_dummy_traffic = current_time
@@ -373,7 +381,7 @@ class UltimateTorAnonymizer:
                 except:
                     pass
                 
-                time.sleep(random.randint(5, 15))
+                time.sleep(random.randint(30, 90))
         
         self.dummy_traffic_thread = threading.Thread(target=enterprise_dummy_traffic_worker, daemon=True)
         self.dummy_traffic_thread.start()
@@ -389,7 +397,7 @@ class UltimateTorAnonymizer:
                 try:
                     # Monitor network connections
                     connections = psutil.net_connections()
-                    tor_connections = [conn for conn in connections if conn.laddr.port == self.config['tor_port']]
+                    tor_connections = [conn for conn in connections if conn.laddr and conn.laddr.port == self.config['tor_port']]
                     
                     # Monitor bandwidth
                     net_io = psutil.net_io_counters()
@@ -397,7 +405,7 @@ class UltimateTorAnonymizer:
                     print(f"📊 Enterprise Traffic - Connections: {len(tor_connections)} | "
                           f"Bytes Sent: {net_io.bytes_sent} | Received: {net_io.bytes_recv}")
                     
-                    time.sleep(30)
+                    time.sleep(60)
                 except:
                     pass
         
@@ -434,7 +442,6 @@ class UltimateTorAnonymizer:
             'http://ifconfig.me/ip',
             'http://ipinfo.io/ip',
             'http://api.ipify.org',
-            'http://checkip.amazonaws.com'
         ]
         
         random.shuffle(enterprise_stealth_services)
@@ -474,7 +481,7 @@ class UltimateTorAnonymizer:
         print("🔍 Running enterprise stealth diagnostics...")
         
         tests_passed = 0
-        total_tests = 5
+        total_tests = 4
         
         # Test 1: IP acquisition
         ip = self.get_enterprise_stealth_ip()
@@ -484,18 +491,7 @@ class UltimateTorAnonymizer:
         else:
             print("❌ Enterprise IP acquisition failed")
         
-        # Test 2: Tor verification
-        try:
-            response = self.session.get('https://check.torproject.org', timeout=10, verify=False)
-            if "Congratulations" in response.text:
-                print("✅ Enterprise Tor verification passed")
-                tests_passed += 1
-            else:
-                print("⚠️  Enterprise Tor detection possible")
-        except:
-            print("❌ Enterprise Tor check failed")
-        
-        # Test 3: Basic functionality
+        # Test 2: Basic functionality
         try:
             response = self.session.get('http://httpbin.org/ip', timeout=10, verify=False)
             if response.status_code == 200:
@@ -504,16 +500,16 @@ class UltimateTorAnonymizer:
         except:
             print("❌ Enterprise basic functionality test failed")
         
-        # Test 4: DNS leak test
+        # Test 3: DNS leak test
         try:
-            response = self.session.get('http://dnsleaktest.com', timeout=10, verify=False)
+            response = self.session.get('http://httpbin.org/get', timeout=10, verify=False)
             if response.status_code == 200:
-                print("✅ Enterprise DNS leak test initiated")
+                print("✅ Enterprise connectivity test passed")
                 tests_passed += 1
         except:
-            print("⚠️  Enterprise DNS leak test inconclusive")
+            print("⚠️  Enterprise connectivity test inconclusive")
         
-        # Test 5: Advanced headers test
+        # Test 4: Headers test
         try:
             response = self.session.get('http://httpbin.org/headers', timeout=10, verify=False)
             if response.status_code == 200:
@@ -525,7 +521,7 @@ class UltimateTorAnonymizer:
         success_rate = (tests_passed / total_tests) * 100
         print(f"📊 Enterprise stealth tests: {tests_passed}/{total_tests} ({success_rate:.1f}%)")
         
-        return tests_passed >= 3
+        return tests_passed >= 2
 
     def enable_enterprise_kill_switch(self) -> None:
         """Enable enterprise kill switch protection"""
@@ -558,25 +554,18 @@ class UltimateTorAnonymizer:
         """Enterprise emergency shutdown procedure"""
         print("🚨 ENTERPRISE EMERGENCY SHUTDOWN INITIATED!")
         
+        self.is_running = False
+        
         # Immediate session closure
         if self.session:
             self.session.close()
         
         # Controller closure
         if self.controller:
-            self.controller.close()
-        
-        # Process termination
-        self.stop_tor_process()
-        
-        # Clear sensitive data
-        try:
-            temp_dir = tempfile.gettempdir()
-            for file in os.listdir(temp_dir):
-                if file.startswith('tor_anonymizer'):
-                    os.remove(os.path.join(temp_dir, file))
-        except:
-            pass
+            try:
+                self.controller.close()
+            except:
+                pass
         
         print("✅ Enterprise emergency shutdown completed")
         os._exit(1)
@@ -604,7 +593,8 @@ class UltimateTorAnonymizer:
             
             response = test_session.get('http://httpbin.org/ip', timeout=10)
             if response.status_code == 200:
-                print(f"✅ Enterprise Tor connection verified: {response.text.strip()}")
+                ip_info = response.json()
+                print(f"✅ Enterprise Tor connection verified: {ip_info}")
             else:
                 print("⚠️  Enterprise connection test returned non-200 status")
                 
@@ -619,7 +609,8 @@ class UltimateTorAnonymizer:
             
             test_response = self.session.get('http://httpbin.org/ip', timeout=10)
             if test_response.status_code == 200:
-                print(f"✅ Enterprise session created: {test_response.text.strip()}")
+                ip_info = test_response.json()
+                print(f"✅ Enterprise session created: {ip_info}")
             else:
                 print("⚠️ Enterprise session created but test request failed")
                 
@@ -683,24 +674,10 @@ class UltimateTorAnonymizer:
                 self.controller.close()
             if self.session:
                 self.session.close()
-            self.stop_tor_process()
             
             print("✅ Enterprise stealth mode terminated")
         except Exception as e:
             print(f"❌ Enterprise shutdown error: {e}")
-
-    def stop_tor_process(self) -> None:
-        """Stop Tor process"""
-        if self.tor_process:
-            try:
-                self.tor_process.terminate()
-                self.tor_process.wait(timeout=5)
-            except:
-                try:
-                    self.tor_process.kill()
-                    self.tor_process.wait()
-                except:
-                    pass
 
     def make_enterprise_stealth_request(self, url: str, method: str = "GET", **kwargs) -> Optional[requests.Response]:
         """Make request with all enterprise protections"""

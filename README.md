@@ -25,7 +25,6 @@ Questo strumento è sviluppato ESCLUSIVAMENTE per:
 L'uso non autorizzato può risultare in:
 - Azioni legali penali e civili
 - Violazione di termini di servizio
-- Conseguenze legali severe
 
 # 👨‍💻 Author - **Andrea Filippo Mongelli** - **Offensive Specialist**
 

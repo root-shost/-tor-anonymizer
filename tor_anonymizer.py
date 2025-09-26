@@ -108,9 +108,9 @@ class AdvancedTorAnonymizer:
 ║                   ULTIMATE STEALTH MODE                      ║
 ║                                                              ║
 ║          🔒 IP Rotation: {rotation_interval}s (Randomized)   ║
-║          🌐 Multi-Hop Circuit: Enabled                       ║
-║          🚫 Dummy Traffic: Active                            ║
-║          🛡️  Entry Guards: {num_guards} Nodes                ║
+║          🌐 Multi-Hop Circuit: Enabled                      ║
+║          🚫 Dummy Traffic: Active                          ║
+║          🛡️  Entry Guards: {num_guards} Nodes               ║
 ║                                                              ║
 ║          Author: {self.author}                               ║
 ║         GitHub: github.com/root-shost/tor-anonymizer         ║
@@ -231,171 +231,14 @@ class AdvancedTorAnonymizer:
             guards.append(f"guard{i}_{country}")
         return guards
 
-    def generate_advanced_torrc(self) -> str:
-        """Generate ultra-advanced Tor configuration"""
-        torrc_content = f"""
-# ULTIMATE ADVANCED STEALTH CONFIGURATION
-SocksPort {self.config['tor_port']}
-ControlPort {self.config['control_port']}
-CookieAuthentication 1
-
-# Advanced security settings
-SafeLogging 1
-SafeSocks 1
-TestSocks 1
-AvoidDiskWrites 1
-
-# Advanced node selection
-StrictNodes {1 if self.config['strict_nodes'] else 0}
-ExcludeNodes {self.config['exclude_nodes']}
-EntryNodes {self.config['entry_nodes']}
-ExitNodes {self.config['exit_nodes']}
-
-# Multi-hop and circuit settings
-MaxCircuitDirtiness {self.config['max_circuit_dirtiness']}
-NewCircuitPeriod 3
-MaxClientCircuitsPending 50
-CircuitBuildTimeout 15
-LearnCircuitBuildTimeout 0
-
-# Entry guards for persistent identity
-UseEntryGuards {1 if self.config['use_entry_guards'] else 0}
-NumEntryGuards {self.config['num_entry_guards']}
-GuardLifetime {self.config['guard_lifetime_days']} days
-
-# Long-lived ports for consistency
-LongLivedPorts {1 if self.config['long_lived_ports'] else 0}
-
-# Bridge configuration
-UseBridges {1 if self.config['use_bridges'] else 0}
-ClientTransportPlugin obfs4 exec /usr/bin/obfs4proxy
-
-# Network settings
-ClientUseIPv4 1
-ClientUseIPv6 0
-FascistFirewall 1
-
-# Exit policy
-ExitPolicy reject *:*
-
-# Logging minimization
-Log notice file ./logs/tor.log
-""".strip()
-        
-        return torrc_content
-
-    def start_advanced_tor_service(self) -> bool:
-        """Start Tor with advanced configuration"""
-        try:
-            Path("tor_data").mkdir(exist_ok=True)
-            Path("logs").mkdir(exist_ok=True)
-            
-            torrc_content = self.generate_advanced_torrc()
-            
-            with open('torrc', 'w') as f:
-                f.write(torrc_content)
-            
-            self.tor_process = subprocess.Popen([
-                "tor", "-f", "torrc"
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-            
-            # Advanced startup verification
-            for i in range(25):
-                time.sleep(1)
-                try:
-                    controller = Controller.from_port(port=self.config['control_port'])
-                    controller.authenticate()
-                    
-                    # Set up entry guards
-                    if self.config['use_entry_guards']:
-                        self.setup_entry_guards(controller)
-                    
-                    controller.close()
-                    print("✓ Advanced Tor service started with entry guards")
-                    atexit.register(self.stop_tor_process)
-                    return True
-                except:
-                    continue
-                    
-            print("✗ Advanced Tor startup failed")
-            return False
-            
-        except Exception as e:
-            print(f"Advanced Tor error: {e}")
-            return False
-
-    def setup_entry_guards(self, controller) -> None:
-        """Setup persistent entry guards"""
-        try:
-            # Get current guards info
-            guards_info = controller.get_info("entry-guards")
-            if not guards_info:
-                print("✓ Entry guards system activated")
-        except:
-            print("⚠ Entry guards setup incomplete")
-
-    def connect_advanced_controller(self) -> bool:
-        """Advanced controller connection with better error handling"""
-        max_retries = 5
-        
-        for attempt in range(max_retries):
-            try:
-                print(f"🔗 Connecting to Tor controller (attempt {attempt + 1})...")
-                
-                self.controller = Controller.from_port(
-                    address="127.0.0.1",
-                    port=self.config['control_port']
-                )
-                
-                # Try cookie authentication first
-                try:
-                    self.controller.authenticate()
-                    print("✅ Tor controller connected (cookie auth)")
-                    
-                    # Verify entry guards
-                    if self.config['use_entry_guards']:
-                        self.verify_entry_guards()
-                    
-                    return True
-                except stem.connection.AuthenticationFailure:
-                    print("⚠️  Cookie auth failed, using basic mode")
-                    return True
-                        
-            except stem.SocketError as e:
-                print(f"❌ Connection failed (attempt {attempt + 1}): {e}")
-                
-                if attempt == max_retries - 1:
-                    print("🔄 Attempting to start Tor service...")
-                    if self.config.get('auto_start_tor', True):
-                        return self.start_advanced_tor_service()
-                    return False
-                time.sleep(2)
-                
-            except Exception as e:
-                print(f"❌ Unexpected error: {e}")
-                if attempt == max_retries - 1:
-                    return False
-                time.sleep(2)
-        
-        return False
-
-    def verify_entry_guards(self) -> None:
-        """Verify entry guards are active"""
-        try:
-            guards_info = self.controller.get_info("entry-guards")
-            if guards_info:
-                print("✓ Entry guards verified")
-        except:
-            print("⚠ Entry guards verification failed")
-
     def create_advanced_session(self) -> requests.Session:
         """Create session with advanced stealth features"""
         session = requests.Session()
         
-        # Advanced proxy configuration
+        # Advanced proxy configuration - usando formato compatibile
         proxy_config = {
-            'http': f'socks5h://{self.config["socks5_host"]}:{self.config["tor_port"]}',
-            'https': f'socks5h://{self.config["socks5_host"]}:{self.config["tor_port"]}'
+            'http': f'socks5://{self.config["socks5_host"]}:{self.config["tor_port"]}',
+            'https': f'socks5://{self.config["socks5_host"]}:{self.config["tor_port"]}'
         }
         session.proxies.update(proxy_config)
         
@@ -408,17 +251,17 @@ Log notice file ./logs/tor.log
         # Advanced stealth headers
         session.headers.update({
             'User-Agent': user_agent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'DNT': '1',
         })
         
-        # Advanced security settings
+        # Security settings
         session.trust_env = False
-        session.max_redirects = 1
+        session.max_redirects = 3
         
         return session
 
@@ -433,19 +276,36 @@ Log notice file ./logs/tor.log
         else:
             time.sleep(self.config['identity_rotation_interval'])
 
+    def connect_advanced_controller(self) -> bool:
+        """Advanced controller connection with better error handling"""
+        try:
+            print("🔗 Attempting to connect to Tor controller...")
+            
+            self.controller = Controller.from_port(
+                address="127.0.0.1",
+                port=self.config['control_port']
+            )
+            
+            # Try cookie authentication first
+            try:
+                self.controller.authenticate()
+                print("✅ Tor controller connected (cookie auth)")
+                return True
+            except stem.connection.AuthenticationFailure:
+                print("⚠️  Cookie auth failed, using basic mode")
+                return True
+                    
+        except Exception as e:
+            print(f"⚠️  Controller connection failed: {e}, using basic mode")
+            return False
+
     def advanced_identity_rotation(self) -> bool:
         """Advanced identity rotation with multiple techniques"""
         try:
             if self.controller and hasattr(self.controller, 'is_authenticated') and self.controller.is_authenticated():
                 # Multiple rotation signals for thorough cleanup
-                self.controller.signal(Signal.CLEARDNCACHE)
-                time.sleep(1)
                 self.controller.signal(Signal.NEWNYM)
-                time.sleep(1)
-                
-                # Advanced rotation wait
-                rotation_wait = random.uniform(2.5, 4.5)
-                time.sleep(rotation_wait)
+                time.sleep(3)
                 
                 self.rotation_count += 1
                 return True
@@ -580,34 +440,64 @@ Log notice file ./logs/tor.log
         
         # First, test basic Tor connection
         try:
-            proxies = {
-                'http': f'socks5h://{self.config["socks5_host"]}:{self.config["tor_port"]}',
-                'https': f'socks5h://{self.config["socks5_host"]}:{self.config["tor_port"]}'
-            }
+            print("🔗 Testing basic Tor connection...")
+            
+            # Test usando requests direttamente
             test_session = requests.Session()
-            test_session.proxies = proxies
+            test_session.proxies = {
+                'http': f'socks5://{self.config["socks5_host"]}:{self.config["tor_port"]}',
+                'https': f'socks5://{self.config["socks5_host"]}:{self.config["tor_port"]}'
+            }
+            
             response = test_session.get('http://httpbin.org/ip', timeout=10)
-            print("✅ Basic Tor connection verified")
+            if response.status_code == 200:
+                print(f"✅ Basic Tor connection verified: {response.text.strip()}")
+            else:
+                print("⚠️  Basic connection test returned non-200 status")
+                
         except Exception as e:
             print(f"❌ Basic Tor connection failed: {e}")
             return False
         
-        # Connect to Tor controller
-        if not self.connect_advanced_controller():
-            print("⚠️  Controller connection failed, using basic mode")
-        
         # Create advanced session
-        self.session = self.create_advanced_session()
+        try:
+            self.session = self.create_advanced_session()
+            
+            # Test the session
+            test_response = self.session.get('http://httpbin.org/ip', timeout=10)
+            if test_response.status_code == 200:
+                print(f"✅ Advanced session created: {test_response.text.strip()}")
+            else:
+                print("⚠️ Session created but test request failed")
+                
+        except Exception as e:
+            print(f"❌ Session creation failed: {e}")
+            return False
+            
+        # Try to connect to controller (optional)
+        try:
+            if not self.connect_advanced_controller():
+                print("⚠️  Controller connection failed, using basic mode")
+        except Exception as e:
+            print(f"⚠️  Controller error: {e}, continuing in basic mode")
+    
         self.is_running = True
         
         # Start dummy traffic generator
-        self.start_dummy_traffic_generator()
+        try:
+            self.start_dummy_traffic_generator()
+        except Exception as e:
+            print(f"⚠️  Dummy traffic failed: {e}")
         
-        # Run advanced tests
-        if not self.run_advanced_stealth_tests():
-            print("⚠️  Some stealth tests failed, continuing in basic mode")
-        
-        print("🎯 Advanced stealth mode ACTIVATED")
+        # Run basic tests
+        try:
+            if self.run_advanced_stealth_tests():
+                print("🎯 Advanced stealth mode ACTIVATED")
+            else:
+                print("🎯 Basic stealth mode ACTIVATED (some tests failed)")
+        except Exception as e:
+            print(f"🎯 Stealth mode ACTIVATED (with limitations: {e})")
+    
         print("💡 Press Ctrl+C to exit gracefully\n")
         
         return True

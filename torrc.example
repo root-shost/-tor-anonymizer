@@ -9,3 +9,12 @@ SafeLogging 1
 TestSocks 1
 MaxCircuitDirtiness 600
 NewCircuitPeriod 30
+
+# CONFIGURAZIONE ATTUALE:
+SOCKSPort 9050
+ControlPort 9051
+
+# CONFIGURAZIONE SICURA:
+ExitPolicy reject *:*
+SafeLogging 1
+DisableDebuggerAttachment 1

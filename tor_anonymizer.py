@@ -72,23 +72,26 @@ class AdvancedTorAnonymizer:
         self.setup_advanced_protections()
 
     def print_banner(self) -> None:
-        """Display advanced stealth banner"""
-        banner = f"""
+    """Display advanced stealth banner"""
+    rotation_interval = self.config.get('identity_rotation_interval', 10)
+    num_guards = self.config.get('num_entry_guards', 3)
+    
+    banner = f"""
 {Colors.PURPLE}{Colors.BOLD}
-╔═════════════════════════════════════════════════════════════════════════════════════╗
-║               ADVANCED TOR ANONYMIZER v 2.0                                         ║
-║                   ULTIMATE STEALTH MODE                                             ║
-║                                                                                     ║
-║          🔒 IP Rotation:                                                            ║
-║          🌐 Multi-Hop Circuit: Enabled                                              ║
-║          🚫 Dummy Traffic: Active                                                   ║
-║          🛡️  Entry Guards:                                                          ║
-║                                                                                     ║
-║          Author: root-shost                                                         ║
-║         GitHub: github.com/root-shost/tor-anonymizer                                ║
-╚═════════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════╗
+║               ADVANCED TOR ANONYMIZER v{self.version}        ║
+║                   ULTIMATE STEALTH MODE                      ║
+║                                                              ║
+║          🔒 IP Rotation: {rotation_interval}s (Randomized)   ║
+║          🌐 Multi-Hop Circuit: Enabled                       ║
+║          🚫 Dummy Traffic: Active                            ║
+║          🛡️  Entry Guards: {num_guards} Nodes                ║
+║                                                              ║
+║          Author: {self.author}                               ║
+║         GitHub: github.com/root-shost/tor-anonymizer         ║
+╚══════════════════════════════════════════════════════════════╝
 {Colors.END}"""
-        print(banner)
+    print(banner)
 
     def setup_advanced_logging(self) -> None:
         """Configure minimal logging for maximum stealth"""

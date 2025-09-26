@@ -40,7 +40,7 @@ L'uso non autorizzato può risultare in:
 ## 📦 Installation & Quick Start
 
 ### Method 1: Direct Execution
-///bash
+ ` ` `bash
 git clone https://github.com/root-shost/-tor-anonymizer.git
 cd tor-anonymizer
 

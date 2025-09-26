@@ -40,40 +40,50 @@ L'uso non autorizzato può risultare in:
 ## 📦 Installation & Quick Start
 
 ### Method 1: Direct Execution
- ` ` `bash
+```bash
 git clone https://github.com/root-shost/-tor-anonymizer.git
 cd tor-anonymizer
 
 # Install dependencies
+```bash
 pip install -r requirements.txt
 
 # Start the anonymizer
+```bash
 python tor_anonymizer.py
 
 ### Method 2: Using Docker
+```bash
 docker-compose up -d
 docker logs tor-anonymizer -f
 
 ### Method 3: Script Usage
+```bash
 chmod +x tor-anonymizer.sh
 
 # Start service
+```bash
 sudo ./tor-anonymizer.sh start
 
 # Check status
+```bash
 ./tor-anonymizer.sh status
 
 # Stop service
+```bash
 sudo ./tor-anonymizer.sh stop
 
 ### Command Line Usage
+```bash
 # Test connection
 python tor_anonymizer.py --test
 
 # Single request
+```bash
 python tor_anonymizer.py --url "https://example.com"
 
 # Interactive mode
+```bash
 python tor_anonymizer.py
 
 

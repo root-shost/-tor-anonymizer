@@ -1,9 +1,8 @@
 #!/bin/bash
-# TOR Anonymizer - Auto Installer Script
-set -euo pipefail
+# Ultimate Advanced Stealth TOR Anonymizer Installer
 
-echo "🔧 TOR Anonymizer Auto-Installer"
-echo "=================================="
+echo "🔒 Installing Ultimate Advanced Stealth TOR Anonymizer..."
+echo "========================================================="
 
 # Color codes
 RED='\033[0;31m'
@@ -21,103 +20,113 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; }
 echo -e "${BLUE}"
 cat << "BANNER"
 ╔══════════════════════════════════════════════════════════════╗
-║                   TOR ANONYMIZER v2.0.0                      ║
-║                       Ultimate Privacy Tool                  ║
-║                                                              ║
-║          Author: root-shost                                  ║
-║         GitHub: github.com/root-shost/tor-anonymizer         ║
+║               ADVANCED TOR ANONYMIZER v2.0.0                 ║
+║                   ULTIMATE STEALTH MODE                      ║
 ╚══════════════════════════════════════════════════════════════╝
 BANNER
 echo -e "${NC}"
 
-# Check if we're in the right directory
+# Check root
+if [[ $EUID -eq 0 ]]; then
+   error "Please do not run as root"
+   exit 1
+fi
+
+# Check directory
 if [[ ! -f "tor_anonymizer.py" ]]; then
-    error "Please run this script from the tor-anonymizer directory"
+    error "Please run from tor-anonymizer directory"
     exit 1
 fi
 
-# Function to install system dependencies
 install_system_deps() {
     log "Installing system dependencies..."
     
-    # Check OS and install Tor
     if command -v apt-get >/dev/null 2>&1; then
-        # Debian/Ubuntu/Kali
         sudo apt-get update
-        sudo apt-get install -y tor torsocks python3 python3-pip python3-venv curl
+        sudo apt-get install -y tor torsocks obfs4proxy python3 python3-pip python3-venv curl net-tools
     elif command -v yum >/dev/null 2>&1; then
-        # CentOS/RHEL
         sudo yum install -y tor python3 python3-pip curl
     elif command -v pacman >/dev/null 2>&1; then
-        # Arch
-        sudo pacman -S --noconfirm tor python python-pip curl
+        sudo pacman -S --noconfirm tor python python-pip curl obfs4proxy
     elif command -v brew >/dev/null 2>&1; then
-        # macOS
         brew install tor python curl
     else
-        warning "Cannot detect package manager. Please install Tor manually."
-        return 1
+        warning "Unknown package manager. Please install dependencies manually."
     fi
     success "System dependencies installed"
 }
 
-# Function to setup Python environment
 setup_python_env() {
-    log "Setting up Python environment..."
+    log "Setting up advanced Python environment..."
     
-    # Create virtual environment
     if [[ ! -d "venv" ]]; then
         python3 -m venv venv
         success "Virtual environment created"
     fi
     
-    # Activate virtual environment
     source venv/bin/activate
-    
-    # Upgrade pip
     pip install --upgrade pip
     
-    # Install Python dependencies
-    if [[ -f "requirements.txt" ]]; then
-        log "Installing Python packages..."
-        pip install -r requirements.txt
+    if pip install -r requirements.txt; then
         success "Python dependencies installed"
     else
-        error "requirements.txt not found"
+        error "Python dependencies failed"
         return 1
     fi
 }
 
-# Function to configure Tor
-configure_tor() {
-    log "Configuring Tor..."
+configure_advanced_settings() {
+    log "Configuring advanced stealth settings..."
     
-    # Create necessary directories
     mkdir -p logs tor_data
     
-    # Create default settings.json if missing
+    # Create advanced config if missing
     if [[ ! -f "settings.json" ]]; then
         cat > settings.json << 'EOF'
 {
     "tor_port": 9050,
     "control_port": 9051,
-    "identity_rotation_interval": 300,
-    "max_retries": 3,
-    "timeout": 30,
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0",
+    "identity_rotation_interval": 10,
+    "min_rotation_delay": 8,
+    "max_rotation_delay": 15,
+    "max_retries": 5,
+    "timeout": 15,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0",
     "socks5_host": "127.0.0.1",
-    "log_level": "INFO",
+    "log_level": "ERROR",
     "auto_start_tor": true,
     "dns_leak_protection": true,
-    "safe_browsing": true
+    "safe_browsing": true,
+    "max_circuit_dirtiness": 5,
+    "exclude_nodes": "{ru},{cn},{us},{gb},{de},{fr},{nl}",
+    "strict_nodes": true,
+    "entry_nodes": "{se},{no},{fi},{dk}",
+    "exit_nodes": "{ch},{at},{li},{is}",
+    "use_bridges": true,
+    "bridge_type": "obfs4",
+    "disable_javascript": true,
+    "block_trackers": true,
+    "cookie_cleanup": true,
+    "random_user_agent": true,
+    "circuit_timeout": 30,
+    "max_circuits": 50,
+    "security_level": "high",
+    "dummy_traffic_enabled": true,
+    "dummy_traffic_interval": 30,
+    "multi_hop_enabled": true,
+    "guard_lifetime_days": 30,
+    "random_delay_enabled": true,
+    "traffic_obfuscation": true,
+    "use_entry_guards": true,
+    "num_entry_guards": 3,
+    "long_lived_ports": true
 }
 EOF
-        success "Default configuration created"
+        success "Advanced configuration created"
     fi
     
-    # Create torrc.example if missing
-    if [[ ! -f "torrc.example" ]]; then
-        cat > torrc.example << 'EOF'
+    # Create torrc.example
+    cat > torrc.example << 'EOF'
 SocksPort 9050
 ControlPort 9051
 CookieAuthentication 1
@@ -125,108 +134,70 @@ DataDirectory ./tor_data
 Log notice file ./logs/tor.log
 RunAsDaemon 0
 EOF
-        success "Tor configuration example created"
-    fi
+    success "Tor configuration created"
 }
 
-# Function to test installation
+set_permissions() {
+    log "Setting up permissions..."
+    chmod +x tor-anonymizer.sh
+    chmod +x tor_anonymizer.py
+    success "Permissions configured"
+}
+
 test_installation() {
-    log "Testing installation..."
+    log "Testing advanced installation..."
     
-    # Activate virtual environment
     source venv/bin/activate
     
-    # Test Python script
-    if python3 -c "import requests, stem, psutil; print('Python dependencies OK')" 2>/dev/null; then
-        success "Python dependencies verified"
+    # Test Python dependencies
+    if python3 -c "import requests, stem, psutil, fake_useragent; print('Advanced dependencies OK')"; then
+        success "Advanced dependencies verified"
     else
-        error "Python dependencies test failed"
+        error "Dependency test failed"
         return 1
     fi
     
     # Test Tor installation
     if command -v tor >/dev/null 2>&1; then
-        success "Tor is installed"
+        success "Tor installation verified"
     else
-        error "Tor is not installed"
-        return 1
-    fi
-    
-    # Make script executable
-    chmod +x tor-anonymizer.sh
-    success "Script permissions set"
-}
-
-# Function to start Tor service
-start_tor_service() {
-    log "Starting Tor service..."
-    
-    # Stop any existing Tor processes
-    sudo systemctl stop tor 2>/dev/null || true
-    pkill -f "tor" 2>/dev/null || true
-    
-    # Start Tor with our configuration
-    if [[ -f "torrc.example" ]]; then
-        tor -f torrc.example &
-        TOR_PID=$!
-        echo $TOR_PID > tor.pid
-        sleep 5
-        
-        if kill -0 $TOR_PID 2>/dev/null; then
-            success "Tor service started (PID: $TOR_PID)"
-        else
-            error "Failed to start Tor service"
-            return 1
-        fi
-    else
-        error "Tor configuration not found"
+        error "Tor not found"
         return 1
     fi
 }
 
-# Main installation process
 main() {
-    log "Starting installation process..."
+    log "Starting advanced installation..."
     
-    # Install system dependencies
-    if ! install_system_deps; then
-        warning "System dependency installation had issues, continuing..."
-    fi
+    install_system_deps
+    setup_python_env
+    configure_advanced_settings
+    set_permissions
     
-    # Setup Python environment
-    if ! setup_python_env; then
-        error "Python environment setup failed"
-        exit 1
-    fi
-    
-    # Configure Tor
-    configure_tor
-    
-    # Test installation
-    if ! test_installation; then
-        error "Installation test failed"
-        exit 1
-    fi
-    
-    # Start Tor service
-    if start_tor_service; then
-        success "Tor service started successfully"
+    if test_installation; then
+        echo ""
+        success "🎯 ULTIMATE ADVANCED STEALTH INSTALLATION COMPLETED!"
+        echo ""
+        echo "Quick start:"
+        echo "  source venv/bin/activate"
+        echo "  python3 tor_anonymizer.py --test"
+        echo ""
+        echo "Advanced modes:"
+        echo "  python3 tor_anonymizer.py                    # Ultimate stealth"
+        echo "  python3 tor_anonymizer.py --mode advanced    # Advanced mode"
+        echo "  python3 tor_anonymizer.py --mode stealth     # Basic stealth"
+        echo ""
+        echo "Features activated:"
+        echo "  ✅ IP Rotation every 10s (randomized)"
+        echo "  ✅ Dummy traffic generation"
+        echo "  ✅ Multi-hop circuits"
+        echo "  ✅ Entry guards protection"
+        echo "  ✅ Random delay obfuscation"
+        echo ""
     else
-        warning "Tor service startup had issues, but installation completed"
+        error "Installation completed with errors"
+        exit 1
     fi
-    
-    echo ""
-    success "🎯 TOR Anonymizer installation completed successfully!"
-    echo ""
-    echo "Next steps:"
-    echo "1. Test the installation: ./tor-anonymizer.sh test"
-    echo "2. Start the service: ./tor-anonymizer.sh start"
-    echo "3. Check status: ./tor-anonymizer.sh status"
-    echo ""
-    echo "Quick test:"
-    echo "  source venv/bin/activate && python3 tor_anonymizer.py --test"
-    echo ""
 }
 
-# Run main function
 main "$@"

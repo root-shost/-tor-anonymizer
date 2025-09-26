@@ -1,20 +1,25 @@
-# TOR Professional Configuration
+# TOR Configuration for Tor Anonymizer
 SOCKSPort 9050
 ControlPort 9051
-HashedControlPassword 16:872860B76453A77D60CA2BB8C1A7042072093276A3D701AD684053EC4C
-Log notice file /var/log/tor/tor.log
-DataDirectory /var/lib/tor
-ExitPolicy reject *:*
+DataDirectory ./tor_data
+Log notice file ./logs/tor.log
+
+# Security settings
 SafeLogging 1
+SafeSocks 1
 TestSocks 1
+
+# Performance
+AvoidDiskWrites 1
+
+# Circuit settings
 MaxCircuitDirtiness 600
-NewCircuitPeriod 30
+NewCircuitPeriod 300
+MaxClientCircuitsPending 32
 
-# CONFIGURAZIONE ATTUALE:
-SOCKSPort 9050
-ControlPort 9051
-
-# CONFIGURAZIONE SICURA:
+# Exit policies (restrictive)
 ExitPolicy reject *:*
-SafeLogging 1
-DisableDebuggerAttachment 1
+ExitPolicy reject6 *:*
+
+# DNS
+ClientUseIPv6 0

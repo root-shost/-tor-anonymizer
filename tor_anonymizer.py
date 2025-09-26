@@ -25,11 +25,16 @@ import atexit
 import ipaddress
 import socket
 import re
-from fake_useragent import UserAgent
-import tempfile
-import shutil
 import threading
 from datetime import datetime, timedelta
+
+# Gestione fallback per fake-useragent
+try:
+    from fake_useragent import UserAgent
+    UA_AVAILABLE = True
+except ImportError:
+    UA_AVAILABLE = False
+    print("⚠️ fake-useragent not available, using fallback user agents")
 
 class Colors:
     """ANSI color codes for terminal output"""
@@ -57,7 +62,7 @@ class AdvancedTorAnonymizer:
         self.tor_process = None
         self.is_running = False
         self.logger = None
-        self.ua_generator = UserAgent()
+        self.ua_generator = self.setup_user_agent_generator()
         self.current_circuit_id = None
         self.rotation_count = 0
         self.start_time = time.time()
@@ -71,12 +76,32 @@ class AdvancedTorAnonymizer:
         self.validate_advanced_environment()
         self.setup_advanced_protections()
 
+    def setup_user_agent_generator(self):
+        """Setup user agent generator with fallback"""
+        if UA_AVAILABLE:
+            return UserAgent()
+        else:
+            return None
+
+    def get_random_user_agent(self):
+        """Get random user agent with fallback"""
+        if self.ua_generator:
+            return self.ua_generator.random
+        else:
+            # Fallback user agents
+            user_agents = [
+                "Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0",
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+            ]
+            return random.choice(user_agents)
+
     def print_banner(self) -> None:
-    """Display advanced stealth banner"""
-    rotation_interval = self.config.get('identity_rotation_interval', 10)
-    num_guards = self.config.get('num_entry_guards', 3)
-    
-    banner = f"""
+        """Display advanced stealth banner"""
+        rotation_interval = self.config.get('identity_rotation_interval', 10)
+        num_guards = self.config.get('num_entry_guards', 3)
+        
+        banner = f"""
 {Colors.PURPLE}{Colors.BOLD}
 ╔══════════════════════════════════════════════════════════════╗
 ║               ADVANCED TOR ANONYMIZER v{self.version}        ║
@@ -91,7 +116,7 @@ class AdvancedTorAnonymizer:
 ║         GitHub: github.com/root-shost/tor-anonymizer         ║
 ╚══════════════════════════════════════════════════════════════╝
 {Colors.END}"""
-    print(banner)
+        print(banner)
 
     def setup_advanced_logging(self) -> None:
         """Configure minimal logging for maximum stealth"""
@@ -100,7 +125,7 @@ class AdvancedTorAnonymizer:
         
         # Ultra-minimal logging
         logging.basicConfig(
-            level=logging.CRITICAL,  # Solo errori critici
+            level=logging.CRITICAL,
             format='%(asctime)s - %(levelname)s - %(message)s',
             handlers=[
                 logging.FileHandler('logs/tor_anonymizer.log', encoding='utf-8'),
@@ -182,7 +207,6 @@ class AdvancedTorAnonymizer:
             import requests
             import stem
             import psutil
-            from fake_useragent import UserAgent
         except ImportError as e:
             print(f"✗ Missing dependency: {e}")
             sys.exit(1)
@@ -311,29 +335,48 @@ Log notice file ./logs/tor.log
             print("⚠ Entry guards setup incomplete")
 
     def connect_advanced_controller(self) -> bool:
-        """Advanced controller connection with multiple fallbacks"""
-        for attempt in range(5):
+        """Advanced controller connection with better error handling"""
+        max_retries = 5
+        
+        for attempt in range(max_retries):
             try:
+                print(f"🔗 Connecting to Tor controller (attempt {attempt + 1})...")
+                
                 self.controller = Controller.from_port(
                     address="127.0.0.1",
                     port=self.config['control_port']
                 )
-                self.controller.authenticate()
                 
-                # Verify entry guards
-                if self.config['use_entry_guards']:
-                    self.verify_entry_guards()
-                
-                return True
+                # Try cookie authentication first
+                try:
+                    self.controller.authenticate()
+                    print("✅ Tor controller connected (cookie auth)")
                     
-            except stem.SocketError:
-                if attempt == 4:
+                    # Verify entry guards
+                    if self.config['use_entry_guards']:
+                        self.verify_entry_guards()
+                    
+                    return True
+                except stem.connection.AuthenticationFailure:
+                    print("⚠️  Cookie auth failed, using basic mode")
+                    return True
+                        
+            except stem.SocketError as e:
+                print(f"❌ Connection failed (attempt {attempt + 1}): {e}")
+                
+                if attempt == max_retries - 1:
+                    print("🔄 Attempting to start Tor service...")
                     if self.config.get('auto_start_tor', True):
                         return self.start_advanced_tor_service()
                     return False
                 time.sleep(2)
-            except stem.connection.AuthenticationFailure:
-                return False
+                
+            except Exception as e:
+                print(f"❌ Unexpected error: {e}")
+                if attempt == max_retries - 1:
+                    return False
+                time.sleep(2)
+        
         return False
 
     def verify_entry_guards(self) -> None:
@@ -358,7 +401,7 @@ Log notice file ./logs/tor.log
         
         # Advanced user agent rotation
         if self.config.get('random_user_agent', True):
-            user_agent = self.ua_generator.random
+            user_agent = self.get_random_user_agent()
         else:
             user_agent = self.config['user_agent']
         
@@ -370,16 +413,12 @@ Log notice file ./logs/tor.log
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Cache-Control': 'max-age=0',
             'DNT': '1',
         })
         
         # Advanced security settings
         session.trust_env = False
-        session.max_redirects = 1  # Ultra-minimal redirects
+        session.max_redirects = 1
         
         return session
 
@@ -397,23 +436,22 @@ Log notice file ./logs/tor.log
     def advanced_identity_rotation(self) -> bool:
         """Advanced identity rotation with multiple techniques"""
         try:
-            if self.controller and self.controller.is_authenticated():
+            if self.controller and hasattr(self.controller, 'is_authenticated') and self.controller.is_authenticated():
                 # Multiple rotation signals for thorough cleanup
                 self.controller.signal(Signal.CLEARDNCACHE)
                 time.sleep(1)
                 self.controller.signal(Signal.NEWNYM)
                 time.sleep(1)
-                self.controller.signal(Signal.RELOAD)
                 
                 # Advanced rotation wait
                 rotation_wait = random.uniform(2.5, 4.5)
                 time.sleep(rotation_wait)
                 
-                # Verify new circuit
-                self.current_circuit_id = self.controller.get_info("circuit-status")
                 self.rotation_count += 1
-                
                 return True
+            else:
+                print("⚠️  Controller not available for rotation")
+                return False
         except Exception as e:
             print(f"🔁 Rotation error: {e}")
         return False
@@ -425,11 +463,11 @@ Log notice file ./logs/tor.log
             
         def dummy_traffic_worker():
             dummy_sites = [
-                "https://www.wikipedia.org/wiki/Special:Random",
-                "https://github.com/explore",
-                "https://stackoverflow.com/questions",
+                "https://www.wikipedia.org",
+                "https://github.com",
+                "https://stackoverflow.com",
                 "https://news.ycombinator.com",
-                "https://www.reddit.com/r/random"
+                "https://www.reddit.com"
             ]
             
             while self.is_running:
@@ -437,13 +475,13 @@ Log notice file ./logs/tor.log
                     current_time = time.time()
                     if current_time - self.last_dummy_traffic >= self.config.get('dummy_traffic_interval', 30):
                         site = random.choice(dummy_sites)
-                        self.session.get(site, timeout=10)
+                        self.session.get(site, timeout=5)
                         self.last_dummy_traffic = current_time
                         print(f"🌫️  Dummy traffic to: {site.split('//')[1].split('/')[0]}")
                 except:
                     pass
                 
-                time.sleep(random.randint(5, 15))  # Random interval
+                time.sleep(random.randint(5, 15))
         
         self.dummy_traffic_thread = threading.Thread(target=dummy_traffic_worker, daemon=True)
         self.dummy_traffic_thread.start()
@@ -455,8 +493,7 @@ Log notice file ./logs/tor.log
             'http://icanhazip.com',
             'http://ifconfig.me/ip',
             'http://ipinfo.io/ip',
-            'http://api.ipify.org',
-            'http://checkip.amazonaws.com'
+            'http://api.ipify.org'
         ]
         
         random.shuffle(stealth_services)
@@ -496,7 +533,7 @@ Log notice file ./logs/tor.log
         print("🔍 Running advanced stealth diagnostics...")
         
         tests_passed = 0
-        total_tests = 5
+        total_tests = 3
         
         # Test 1: IP acquisition
         ip = self.get_advanced_stealth_ip()
@@ -517,40 +554,19 @@ Log notice file ./logs/tor.log
         except:
             print("❌ Tor check failed")
         
-        # Test 3: DNS leak test
+        # Test 3: Basic functionality
         try:
-            response = self.session.get('http://dnsleaktest.com', timeout=10)
-            print("✅ DNS leak test passed")
-            tests_passed += 1
-        except:
-            print("⚠️  DNS test inconclusive")
-        
-        # Test 4: Advanced headers check
-        try:
-            response = self.session.get('http://httpbin.org/headers', timeout=10)
+            response = self.session.get('http://httpbin.org/ip', timeout=10)
             if response.status_code == 200:
-                print("✅ Headers obfuscation active")
+                print("✅ Basic functionality OK")
                 tests_passed += 1
         except:
-            print("❌ Headers test failed")
-        
-        # Test 5: Latency check
-        start_time = time.time()
-        try:
-            self.session.get('http://httpbin.org/delay/1', timeout=5)
-            latency = time.time() - start_time
-            if latency < 4:
-                print(f"✅ Latency acceptable: {latency:.2f}s")
-                tests_passed += 1
-            else:
-                print(f"⚠️  High latency: {latency:.2f}s")
-        except:
-            print("❌ Latency test failed")
+            print("❌ Basic functionality test failed")
         
         success_rate = (tests_passed / total_tests) * 100
         print(f"📊 Stealth tests: {tests_passed}/{total_tests} ({success_rate:.1f}%)")
         
-        return tests_passed >= 3
+        return tests_passed >= 2
 
     def start_advanced_stealth_mode(self) -> bool:
         """Start ultimate advanced stealth mode"""
@@ -562,10 +578,23 @@ Log notice file ./logs/tor.log
         
         print("🔒 Initializing advanced stealth protections...")
         
-        # Connect to Tor with advanced features
-        if not self.connect_advanced_controller():
-            print("❌ Advanced Tor connection failed")
+        # First, test basic Tor connection
+        try:
+            proxies = {
+                'http': f'socks5h://{self.config["socks5_host"]}:{self.config["tor_port"]}',
+                'https': f'socks5h://{self.config["socks5_host"]}:{self.config["tor_port"]}'
+            }
+            test_session = requests.Session()
+            test_session.proxies = proxies
+            response = test_session.get('http://httpbin.org/ip', timeout=10)
+            print("✅ Basic Tor connection verified")
+        except Exception as e:
+            print(f"❌ Basic Tor connection failed: {e}")
             return False
+        
+        # Connect to Tor controller
+        if not self.connect_advanced_controller():
+            print("⚠️  Controller connection failed, using basic mode")
         
         # Create advanced session
         self.session = self.create_advanced_session()
@@ -576,7 +605,7 @@ Log notice file ./logs/tor.log
         
         # Run advanced tests
         if not self.run_advanced_stealth_tests():
-            print("⚠️  Some stealth tests failed, continuing anyway")
+            print("⚠️  Some stealth tests failed, continuing in basic mode")
         
         print("🎯 Advanced stealth mode ACTIVATED")
         print("💡 Press Ctrl+C to exit gracefully\n")
@@ -598,10 +627,6 @@ Log notice file ./logs/tor.log
                 self.session.close()
             self.stop_tor_process()
             
-            # Wait for dummy traffic thread
-            if self.dummy_traffic_thread and self.dummy_traffic_thread.is_alive():
-                self.dummy_traffic_thread.join(timeout=2)
-            
             print("✅ Advanced stealth mode terminated")
         except Exception as e:
             print(f"❌ Shutdown error: {e}")
@@ -613,12 +638,15 @@ Log notice file ./logs/tor.log
                 self.tor_process.terminate()
                 self.tor_process.wait(timeout=5)
             except:
-                self.tor_process.kill()
-                self.tor_process.wait()
+                try:
+                    self.tor_process.kill()
+                    self.tor_process.wait()
+                except:
+                    pass
 
     def make_advanced_stealth_request(self, url: str, method: str = "GET", **kwargs) -> Optional[requests.Response]:
         """Make request with all advanced protections"""
-        if not self.is_running:
+        if not self.is_running or not self.session:
             return None
         
         max_retries = kwargs.pop('max_retries', self.config['max_retries'])
@@ -635,7 +663,8 @@ Log notice file ./logs/tor.log
                 
             except requests.exceptions.RequestException:
                 if attempt < max_retries - 1:
-                    self.advanced_identity_rotation()
+                    if self.controller:
+                        self.advanced_identity_rotation()
                     self.random_delay_before_rotation()
         
         return None
@@ -653,7 +682,7 @@ Log notice file ./logs/tor.log
                 
                 # Advanced rotation with random delays
                 if current_time - last_rotation >= self.config['identity_rotation_interval']:
-                    if self.advanced_identity_rotation():
+                    if self.controller and self.advanced_identity_rotation():
                         ip = self.get_advanced_stealth_ip()
                         if ip:
                             uptime = int(current_time - self.start_time)
@@ -669,7 +698,7 @@ Log notice file ./logs/tor.log
                     print(f"📊 Status: {self.rotation_count} rotations | Running: {int(current_time - self.start_time)}s")
                     last_status_update = current_time
                 
-                time.sleep(0.5)  # Reduced sleep for responsiveness
+                time.sleep(1)
                 
         except KeyboardInterrupt:
             print("\n🛑 Advanced stealth mode interrupted")

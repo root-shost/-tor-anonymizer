@@ -1,7 +1,6 @@
 {
     "tor_port": 9050,
     "control_port": 9051,
-    "control_password": "auto_generated_secure_password_here",
     "identity_rotation_interval": 300,
     "max_retries": 3,
     "timeout": 30,
@@ -10,8 +9,5 @@
     "log_level": "INFO",
     "auto_start_tor": true,
     "dns_leak_protection": true,
-    "safe_browsing": true,
-    "max_circuit_dirtiness": 600,
-    "exclude_nodes": "",
-    "strict_nodes": false
+    "safe_browsing": true
 }

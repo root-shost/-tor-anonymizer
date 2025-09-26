@@ -3,5 +3,3 @@ stem>=1.8.0
 socksipy-branch>=1.1.0
 pysocks>=1.7.1
 psutil>=5.9.0
-argparse>=1.4.0
-pathlib2>=2.3.0; python_version < '3.4'

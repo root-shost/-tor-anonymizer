@@ -39,3 +39,34 @@ pip install -r requirements.txt
 
 # Start the anonymizer
 python tor_anonymizer.py
+
+### Method 2: Using Docker
+```bash
+docker-compose up -d
+docker logs tor-anonymizer -f
+
+### Method 3: Script Usage
+```bash
+chmod +x tor-anonymizer.sh
+
+# Start service
+sudo ./tor-anonymizer.sh start
+
+# Check status
+./tor-anonymizer.sh status
+
+# Stop service
+sudo ./tor-anonymizer.sh stop
+
+### Command Line Usage
+```bash
+# Test connection
+python tor_anonymizer.py --test
+
+# Single request
+python tor_anonymizer.py --url "https://example.com"
+
+# Interactive mode
+python tor_anonymizer.py
+
+

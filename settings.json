@@ -1,0 +1,26 @@
+{
+    "application": {
+        "name": "TOR Anonymizer",
+        "version": "2.0",
+        "author": "root-shost",
+        "description": "Professional privacy tool for advanced anonymization",
+        "repository": "https://github.com/root-shost/-tor-anonymizer"
+    },
+    "network": {
+        "tor_socks_port": 9050,
+        "tor_control_port": 9051,
+        "ip_change_interval": 10,
+        "max_circuit_dirtiness": 10
+    },
+    "security": {
+        "cookie_authentication": true,
+        "safe_logging": true,
+        "stream_isolation": true,
+        "use_entry_guards": false
+    },
+    "performance": {
+        "max_client_circuits": 32,
+        "max_memory_mb": 256,
+        "circuit_build_timeout": 10
+    }
+}

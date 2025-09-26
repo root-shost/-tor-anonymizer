@@ -13,7 +13,7 @@ readme = "README.md"
 license = {text = "MIT"}
 keywords = ["tor", "anonymity", "privacy", "security", "proxy"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -40,7 +40,3 @@ docker = ["docker"]
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["tor_anonymizer*"]
-
-[tool.black]
-line-length = 88
-target-version = ['py38']

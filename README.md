@@ -84,8 +84,11 @@ python3 tor_anonymizer.py
 # Single request
 python3 tor_anonymizer.py --url "https://example.com"
 
-# Interactive mode
+# Comandi avanzati STEALTH
 ```bash
-python tor_anonymizer.py
+./tor-anonymizer.sh ultimate      # Modalità ultimate
+./tor-anonymizer.sh advanced      # Modalità avanzata  
+./tor-anonymizer.sh stealth       # Modalità base (alias di ultimate)
+./tor-anonymizer.sh test-advanced # Test avanzato
 
 

@@ -147,39 +147,56 @@ start_service() {
     
     log "Starting Tor Anonymizer..."
     
+    # Force virtual environment activation
     if ! activate_venv; then
+        error "Failed to activate virtual environment"
         return 1
     fi
     
+    # Verify Python dependencies
+    log "Verifying Python dependencies..."
+    if ! python3 -c "import requests, stem, psutil" 2>/dev/null; then
+        error "Python dependencies missing. Installing..."
+        pip install -r requirements.txt
+    fi
+    
+    # Check Tor connection more thoroughly
     if ! check_tor_connection; then
-        warning "Tor not running. Attempting to start..."
+        warning "Tor not running. Starting Tor service..."
         sudo systemctl start tor 2>/dev/null || true
-        sleep 3
+        sleep 5
         
+        # Additional Tor start attempts
         if ! check_tor_connection; then
-            log "Starting built-in Tor service..."
-            tor -f torrc.example 2>/dev/null &
-            sleep 5
+            log "Attempting to start built-in Tor..."
+            tor --quiet --runasdaemon 1 --controlport 9051 --cookieauthentication 1 &
+            sleep 10
         fi
     fi
     
-    nohup python3 tor_anonymizer.py >> "$LOG_FILE" 2>&1 &
-    local pid=$!
-    
-    sleep 3
-    if kill -0 "$pid" 2>/dev/null; then
-        success "Tor Anonymizer started (PID: $pid)"
-        info "Log file: $LOG_FILE"
+    # Start the application with better error handling
+    log "Launching Tor Anonymizer..."
+    if nohup python3 tor_anonymizer.py >> "$LOG_FILE" 2>&1 & then
+        local pid=$!
+        sleep 5
         
-        sleep 2
-        if check_tor_connection; then
-            success "Service started successfully"
+        if kill -0 "$pid" 2>/dev/null; then
+            success "Tor Anonymizer started (PID: $pid)"
+            info "Log file: $LOG_FILE"
+            
+            # Wait longer and test more thoroughly
+            sleep 5
+            if check_tor_connection; then
+                success "Service started successfully"
+            else
+                warning "Service started but Tor connection needs verification"
+            fi
         else
-            warning "Service started but Tor connection needs verification"
+            error "Process died immediately. Check logs."
+            return 1
         fi
     else
         error "Failed to start Tor Anonymizer"
-        error "Check logs: $LOG_FILE"
         return 1
     fi
 }

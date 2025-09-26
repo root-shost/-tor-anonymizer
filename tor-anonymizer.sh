@@ -25,7 +25,7 @@ print_banner() {
 ║                       Ultimate Privacy Tool                  ║
 ║                                                              ║
 ║          Author: root-shost                                  ║
-║         GitHub: github.com/root-shost/-tor-anonymizer        ║
+║         GitHub: github.com/root-shost/tor-anonymizer         ║
 ╚══════════════════════════════════════════════════════════════╝
 BANNER
     echo -e "${NC}"
@@ -57,8 +57,11 @@ check_dependencies() {
 
 check_tor_connection() {
     log "Testing Tor connection..."
-    if curl --socks5-hostname localhost:9050 --max-time 10 -s http://httpbin.org/ip &>/dev/null; then
+    if curl --socks5-hostname localhost:9050 --max-time 10 -s https://check.torproject.org/ | grep -q "Congratulations"; then
         success "Tor connection successful"
+        return 0
+    elif curl --socks5-hostname localhost:9050 --max-time 10 -s http://httpbin.org/ip &>/dev/null; then
+        warning "Tor connected but torproject check failed"
         return 0
     else
         warning "Tor not responding on port 9050"
@@ -78,7 +81,6 @@ import json
 config = {
     'tor_port': 9050,
     'control_port': 9051,
-    'control_password': 'auto_generated_password',
     'identity_rotation_interval': 300,
     'max_retries': 3,
     'timeout': 30,
@@ -93,6 +95,7 @@ print('Default config created')
     # Check if Tor is installed
     if ! command -v tor &> /dev/null; then
         warning "Tor is not installed. The tool will try to use system Tor if available."
+        info "To install Tor: sudo apt install tor"
     fi
 }
 
@@ -106,6 +109,10 @@ show_status() {
     
     if check_tor_connection; then
         info "Tor proxy: socks5://127.0.0.1:9050"
+        
+        # Show current IP through Tor
+        local current_ip=$(curl --socks5-hostname localhost:9050 -s http://icanhazip.com 2>/dev/null || echo "Unknown")
+        info "Current Tor IP: $current_ip"
     else
         warning "Tor proxy not available"
     fi
@@ -118,15 +125,31 @@ start_service() {
     fi
     
     log "Starting Tor Anonymizer..."
+    
+    # Ensure Python virtual environment is activated if exists
+    if [[ -f "venv/bin/activate" ]]; then
+        source venv/bin/activate
+        info "Using Python virtual environment"
+    fi
+    
     nohup python3 tor_anonymizer.py >> "$LOG_FILE" 2>&1 &
     local pid=$!
     
-    sleep 3
+    sleep 5
     if kill -0 "$pid" 2>/dev/null; then
         success "Tor Anonymizer started (PID: $pid)"
         info "Log file: $LOG_FILE"
+        
+        # Wait a bit and test connection
+        sleep 3
+        if check_tor_connection; then
+            success "Service started successfully"
+        else
+            warning "Service started but Tor connection test failed"
+        fi
     else
         error "Failed to start Tor Anonymizer"
+        error "Check logs: $LOG_FILE"
         return 1
     fi
 }
@@ -139,6 +162,12 @@ stop_service() {
     if pgrep -f "python3.*tor_anonymizer.py" > /dev/null; then
         warning "Forcing shutdown..."
         pkill -9 -f "python3.*tor_anonymizer.py" || true
+        sleep 1
+    fi
+    
+    # Stop any Tor processes started by the tool
+    if [[ -f "torrc" ]]; then
+        pkill -f "tor -f torrc" || true
     fi
     
     success "Tor Anonymizer stopped"
@@ -158,10 +187,27 @@ show_logs() {
     fi
 }
 
+run_test() {
+    log "Running comprehensive test..."
+    
+    if check_tor_connection; then
+        success "Tor connection: OK"
+    else
+        error "Tor connection: FAILED"
+    fi
+    
+    # Test Python script directly
+    if python3 tor_anonymizer.py --test; then
+        success "Python module test: OK"
+    else
+        error "Python module test: FAILED"
+    fi
+}
+
 usage() {
     echo -e "${PURPLE}Tor Anonymizer Management Script${NC}"
     echo
-    echo "Usage: $0 {start|stop|restart|status|logs|test}"
+    echo "Usage: $0 {start|stop|restart|status|logs|test|install}"
     echo
     echo "Commands:"
     echo "  start    - Start the Tor Anonymizer service"
@@ -169,8 +215,38 @@ usage() {
     echo "  restart  - Restart the service"
     echo "  status   - Show service status"
     echo "  logs     - Tail log file"
-    echo "  test     - Test Tor connection"
+    echo "  test     - Run comprehensive tests"
+    echo "  install  - Install dependencies"
     echo
+}
+
+install_dependencies() {
+    log "Installing dependencies..."
+    
+    # Check if we're in a virtual environment
+    if [[ -z "${VIRTUAL_ENV:-}" ]]; then
+        warning "Not in a virtual environment. Creating one..."
+        python3 -m venv venv
+        source venv/bin/activate
+    fi
+    
+    # Install Python dependencies
+    if pip install -r requirements.txt; then
+        success "Python dependencies installed"
+    else
+        error "Failed to install Python dependencies"
+        return 1
+    fi
+    
+    # Check system dependencies
+    if ! command -v tor &> /dev/null; then
+        warning "Tor is not installed. You may need to install it manually:"
+        info "Debian/Ubuntu: sudo apt install tor"
+        info "CentOS/RHEL: sudo yum install tor"
+        info "Arch: sudo pacman -S tor"
+    else
+        success "Tor is installed"
+    fi
 }
 
 main() {
@@ -193,7 +269,10 @@ main() {
             show_logs
             ;;
         test)
-            check_tor_connection
+            check_dependencies && setup_environment && run_test
+            ;;
+        install)
+            install_dependencies
             ;;
         help|--help|-h)
             usage

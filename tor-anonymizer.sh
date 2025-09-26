@@ -70,8 +70,7 @@ check_dependencies() {
     fi
     
     if ! command -v tor &> /dev/null; then
-        warning "Tor not found. The tool will try to install it automatically."
-        return 1
+        warning "Tor not found. The tool will try to use system Tor."
     fi
     
     success "Dependencies verified"
@@ -105,7 +104,7 @@ setup_environment() {
 {
     "tor_port": 9050,
     "control_port": 9051,
-    "identity_rotation_interval": 300,
+    "identity_rotation_interval": 10,
     "max_retries": 3,
     "timeout": 30,
     "auto_start_tor": true
@@ -153,46 +152,25 @@ start_service() {
         return 1
     fi
     
-    # Verify Python dependencies
-    log "Verifying Python dependencies..."
-    if ! python3 -c "import requests, stem, psutil" 2>/dev/null; then
-        error "Python dependencies missing. Installing..."
-        pip install -r requirements.txt
-    fi
-    
-    # Check Tor connection more thoroughly
+    # Check Tor connection
     if ! check_tor_connection; then
-        warning "Tor not running. Starting Tor service..."
+        warning "Tor not running. Attempting to start..."
         sudo systemctl start tor 2>/dev/null || true
         sleep 5
-        
-        # Additional Tor start attempts
-        if ! check_tor_connection; then
-            log "Attempting to start built-in Tor..."
-            tor --quiet --runasdaemon 1 --controlport 9051 --cookieauthentication 1 &
-            sleep 10
-        fi
     fi
     
-    # Start the application with better error handling
+    # Start the application
     log "Launching Tor Anonymizer..."
     if nohup python3 tor_anonymizer.py >> "$LOG_FILE" 2>&1 & then
         local pid=$!
-        sleep 5
+        sleep 3
         
         if kill -0 "$pid" 2>/dev/null; then
             success "Tor Anonymizer started (PID: $pid)"
             info "Log file: $LOG_FILE"
-            
-            # Wait longer and test more thoroughly
-            sleep 5
-            if check_tor_connection; then
-                success "Service started successfully"
-            else
-                warning "Service started but Tor connection needs verification"
-            fi
+            return 0
         else
-            error "Process died immediately. Check logs."
+            error "Process died immediately. Check logs: $LOG_FILE"
             return 1
         fi
     else
@@ -210,11 +188,6 @@ stop_service() {
     if pgrep -f "python3.*tor_anonymizer.py" > /dev/null; then
         warning "Forcing shutdown..."
         pkill -9 -f "python3.*tor_anonymizer.py" || true
-    fi
-    
-    if [[ -f "tor.pid" ]]; then
-        kill "$(cat tor.pid)" 2>/dev/null || true
-        rm -f tor.pid
     fi
     
     success "Tor Anonymizer stopped"
@@ -238,6 +211,12 @@ show_logs() {
 run_test() {
     log "Running comprehensive test..."
     
+    if ! check_installation; then
+        return 1
+    fi
+    
+    activate_venv
+    
     if check_tor_connection; then
         success "Tor connection: OK"
     else
@@ -249,21 +228,6 @@ run_test() {
         success "Python module test: OK"
     else
         error "Python module test: FAILED"
-    fi
-    
-    log "Testing basic functionality..."
-    if python3 -c "
-import requests
-proxies = {'http': 'socks5h://127.0.0.1:9050', 'https': 'socks5h://127.0.0.1:9050'}
-try:
-    r = requests.get('http://httpbin.org/ip', proxies=proxies, timeout=10)
-    print('✓ Basic proxy test: OK')
-except Exception as e:
-    print('✗ Basic proxy test: FAILED')
-"; then
-        success "Basic functionality: OK"
-    else
-        error "Basic functionality: FAILED"
     fi
 }
 

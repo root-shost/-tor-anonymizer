@@ -9,5 +9,8 @@
     "log_level": "INFO",
     "auto_start_tor": true,
     "dns_leak_protection": true,
-    "safe_browsing": true
+    "safe_browsing": true,
+    "max_circuit_dirtiness": 600,
+    "exclude_nodes": "",
+    "strict_nodes": false
 }

@@ -6,15 +6,26 @@ Professional Privacy Tool for Advanced Anonymization
 ![Python](https://img.shields.io/badge/python-3.8%2B-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
-## ⚠️ IMPORTANT SECURITY NOTICE
+# ⚠️ DISCLAIMER LEGALE E AVVISO DI SICUREZZA CRITICO
 
-**This tool is designed for:**
-- Authorized penetration testing
-- Privacy research and education  
-- Security auditing and awareness
-- Legal anonymity requirements
+## INTENSO D'USO APPROPRIATO
+Questo strumento è sviluppato ESCLUSIVAMENTE per:
+- Test di penetrazione autorizzati
+- Ricerca sulla privacy e educazione alla sicurezza
+- Audit di sicurezza con permesso esplicito
+- Sviluppo di contromisure di sicurezza
 
-**⚠️ Use responsibly and comply with all applicable laws.**
+## ⚖️ AVVERTENZE LEGALI
+- **VIETATO** l'uso per attività illegali o non autorizzate
+- L'autore **NON** è responsabile per uso improprio
+- Verificare le leggi locali prima dell'utilizzo
+- Richiedere sempre autorizzazioni scritte per testing
+
+## 🚨 CONSEGUENZE
+L'uso non autorizzato può risultare in:
+- Azioni legali penali e civili
+- Violazione di termini di servizio
+- Conseguenze legali severe
 
 # 👨‍💻 Author - **Andrea Filippo Mongelli** - **Offensive Specialist**
 

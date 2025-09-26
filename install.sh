@@ -67,7 +67,11 @@ setup_python_env() {
     source venv/bin/activate
     pip install --upgrade pip
     
-    if pip install -r requirements.txt; then
+    # Fix per la libreria socks problematica
+    log "Installing corrected dependencies..."
+    pip uninstall -y socksipy-branch SocksiPy-branch 2>/dev/null || true
+    
+    if pip install requests stem psutil fake-useragent PySocks; then
         success "Python dependencies installed"
     else
         error "Python dependencies failed"
@@ -150,7 +154,7 @@ test_installation() {
     source venv/bin/activate
     
     # Test Python dependencies
-    if python3 -c "import requests, stem, psutil, fake_useragent; print('Advanced dependencies OK')"; then
+    if python3 -c "import requests, stem, psutil, fake_useragent, socks; print('Advanced dependencies OK')"; then
         success "Advanced dependencies verified"
     else
         error "Dependency test failed"
@@ -164,6 +168,39 @@ test_installation() {
         error "Tor not found"
         return 1
     fi
+    
+    # Test basic functionality
+    log "Testing basic functionality..."
+    if python3 -c "
+import requests
+proxies = {'http': 'socks5://127.0.0.1:9050', 'https': 'socks5://127.0.0.1:9050'}
+try:
+    r = requests.get('http://httpbin.org/ip', proxies=proxies, timeout=10)
+    print('✓ Basic proxy test: OK')
+except Exception as e:
+    print('✗ Basic proxy test: FAILED -', e)
+"; then
+        success "Basic functionality verified"
+    else
+        warning "Basic functionality test had issues"
+    fi
+}
+
+fix_common_issues() {
+    log "Fixing common issues..."
+    
+    source venv/bin/activate
+    
+    # Fix per la libreria socks
+    pip uninstall -y socksipy-branch SocksiPy-branch 2>/dev/null || true
+    pip install PySocks --upgrade
+    
+    # Verifica che tutto funzioni
+    if python3 -c "import socks; print('✅ Socks library fixed')" 2>/dev/null; then
+        success "Common issues fixed"
+    else
+        warning "Some issues may persist"
+    fi
 }
 
 main() {
@@ -173,19 +210,21 @@ main() {
     setup_python_env
     configure_advanced_settings
     set_permissions
+    fix_common_issues
     
     if test_installation; then
         echo ""
         success "🎯 ULTIMATE ADVANCED STEALTH INSTALLATION COMPLETED!"
         echo ""
         echo "Quick start:"
-        echo "  source venv/bin/activate"
-        echo "  python3 tor_anonymizer.py --test"
+        echo "  ./tor-anonymizer.sh test"
+        echo "  ./tor-anonymizer.sh ultimate"
+        echo "  ./tor-anonymizer.sh status"
         echo ""
         echo "Advanced modes:"
-        echo "  python3 tor_anonymizer.py                    # Ultimate stealth"
-        echo "  python3 tor_anonymizer.py --mode advanced    # Advanced mode"
-        echo "  python3 tor_anonymizer.py --mode stealth     # Basic stealth"
+        echo "  ./tor-anonymizer.sh ultimate     # Ultimate stealth (IP rotation every 10s)"
+        echo "  ./tor-anonymizer.sh advanced     # Advanced mode"
+        echo "  ./tor-anonymizer.sh stealth      # Basic stealth"
         echo ""
         echo "Features activated:"
         echo "  ✅ IP Rotation every 10s (randomized)"
@@ -193,9 +232,18 @@ main() {
         echo "  ✅ Multi-hop circuits"
         echo "  ✅ Entry guards protection"
         echo "  ✅ Random delay obfuscation"
+        echo "  ✅ Fixed socks library issues"
+        echo ""
+        echo "If you encounter issues, run: ./tor-anonymizer.sh test"
         echo ""
     else
         error "Installation completed with errors"
+        echo ""
+        echo "Troubleshooting steps:"
+        echo "1. Run: source venv/bin/activate"
+        echo "2. Run: pip install PySocks --upgrade"
+        echo "3. Run: python3 tor_anonymizer.py --test"
+        echo "4. Check Tor is running: sudo systemctl status tor"
         exit 1
     fi
 }

@@ -1,3 +1,4 @@
-requests>=2.25.0
-stem>=1.8.0
-psutil>=5.8.0  # Per monitoring processo
+requests>=2.31.0
+stem>=1.8.2
+colorama>=0.4.6
+psutil>=5.9.5

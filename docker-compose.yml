@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  tor-anonymizer:
+    build: .
+    container_name: tor-anonymizer
+    ports:
+      - "9050:9050"
+      - "9051:9051"
+    volumes:
+      - ./config:/app/config
+      - ./data:/var/lib/tor
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+    cap_add:
+      - NET_ADMIN
+
+  monitor:
+    image: root-shost/-tor-anonymizer:latest
+    command: nyx -i 127.0.0.1:9051
+    depends_on:
+      - tor-anonymizer
+    tty: true

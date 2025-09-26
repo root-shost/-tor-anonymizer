@@ -16,7 +16,7 @@
 **Use responsibly and comply with local laws.**
 
 ## 👨‍💻 Author
-**rAndrea Filippo Mongelli * - Offensive & Defensive Security Specialist
+**Andrea Filippo Mongelli * - Offensive & Defensive Security Specialist
 
 ## 🚀 Features
 

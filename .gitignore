@@ -19,30 +19,13 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
-# Virtual environment
-venv/
+# Environments
+.env
+.venv
 env/
+venv/
 ENV/
-
-# Logs
-logs/
-*.log
-
-# Data files
-data/
-*.db
-*.sqlite3
-
-# Configuration
-*.env
-.env.local
-settings.local.json
-
-# OS
-.DS_Store
-Thumbs.db
 
 # IDE
 .vscode/
@@ -50,9 +33,10 @@ Thumbs.db
 *.swp
 *.swo
 
-# Docker
-docker-compose.override.yml
+# OS
+.DS_Store
+Thumbs.db
 
-# Temporary files
-tmp/
-temp/
+# Tor data
+tor_data/
+*.log

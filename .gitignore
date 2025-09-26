@@ -1,19 +1,48 @@
-# Logs
-*.log
-logs/
-tor-anonymizer.log
-
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environment
 venv/
+env/
 ENV/
-env.bak/
-venv.bak/
+
+# Logs
+logs/
+*.log
+
+# Data files
+data/
+*.db
+*.sqlite3
+
+# Configuration
+*.env
+.env.local
+settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
 
 # IDE
 .vscode/
@@ -21,13 +50,9 @@ venv.bak/
 *.swp
 *.swo
 
-# OS
-.DS_Store
-Thumbs.db
+# Docker
+docker-compose.override.yml
 
 # Temporary files
 tmp/
 temp/
-
-# Docker
-.dockerignore

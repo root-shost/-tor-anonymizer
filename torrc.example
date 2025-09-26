@@ -1,25 +1,19 @@
-# TOR Configuration for Tor Anonymizer
-SOCKSPort 9050
+SocksPort 9050
 ControlPort 9051
+CookieAuthentication 1
 DataDirectory ./tor_data
 Log notice file ./logs/tor.log
+RunAsDaemon 0
 
 # Security settings
 SafeLogging 1
 SafeSocks 1
 TestSocks 1
 
-# Performance
-AvoidDiskWrites 1
+# Exit policy (restrictive)
+ExitPolicy reject *:*
 
 # Circuit settings
 MaxCircuitDirtiness 600
-NewCircuitPeriod 300
+NewCircuitPeriod 30
 MaxClientCircuitsPending 32
-
-# Exit policies (restrictive)
-ExitPolicy reject *:*
-ExitPolicy reject6 *:*
-
-# DNS
-ClientUseIPv6 0

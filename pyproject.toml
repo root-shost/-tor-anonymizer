@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tor-anonymizer"
-version = "2.0.0"
-description = "Professional Tor Network Anonymization Tool"
+version = "2.0.1"
+description = "Professional Tor Network Anonymization Tool with Auto IP Rotation"
 authors = [
     {name = "root-shost", email = "github@root-shost.com"}
 ]
 readme = "README.md"
 license = {text = "MIT"}
-keywords = ["tor", "anonymity", "privacy", "security", "proxy"]
+keywords = ["tor", "anonymity", "privacy", "security", "proxy", "ip-rotation"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -26,9 +26,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/root-shost/-tor-anonymizer"
-Repository = "https://github.com/root-shost/-tor-anonymizer"
-Issues = "https://github.com/root-shost/-tor-anonymizer/issues"
+Homepage = "https://github.com/root-shost/tor-anonymizer"
+Repository = "https://github.com/root-shost/tor-anonymizer"
+Issues = "https://github.com/root-shost/tor-anonymizer/issues"
 
 [project.scripts]
 tor-anonymizer = "tor_anonymizer:main"
@@ -36,7 +36,12 @@ tor-anonymizer = "tor_anonymizer:main"
 [project.optional-dependencies]
 dev = ["pytest", "black", "flake8", "mypy"]
 docker = ["docker"]
+monitoring = ["psutil", "requests"]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["tor_anonymizer*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38']

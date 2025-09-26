@@ -1,7 +1,7 @@
 {
     "tor_port": 9050,
     "control_port": 9051,
-    "identity_rotation_interval": 300,
+    "identity_rotation_interval": 10,
     "max_retries": 3,
     "timeout": 30,
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0",
@@ -10,7 +10,15 @@
     "auto_start_tor": true,
     "dns_leak_protection": true,
     "safe_browsing": true,
-    "max_circuit_dirtiness": 600,
+    "max_circuit_dirtiness": 10,
     "exclude_nodes": "",
-    "strict_nodes": false
+    "strict_nodes": false,
+    "fast_rotation_mode": true,
+    "rotation_strategy": "time_based",
+    "min_rotation_interval": 10,
+    "max_rotation_interval": 300,
+    "rotation_variance": 5,
+    "circuit_timeout": 60,
+    "max_circuits": 100,
+    "geoip_exclude": ["US", "CA", "GB", "AU", "NZ"]
 }

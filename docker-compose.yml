@@ -6,44 +6,26 @@ services:
     container_name: tor-anonymizer
     restart: unless-stopped
     ports:
-      - "9050:9050"   # Tor SOCKS port
-      - "9051:9051"   # Tor control port
+      - "9050:9050"  # Tor SOCKS port
+      - "9051:9051"  # Tor control port
     volumes:
-      - ./data/tor:/var/lib/tor:rw
-      - ./logs:/app/logs:rw
+      - ./logs:/app/logs
+      - ./tor_data:/app/tor_data
       - ./settings.json:/app/settings.json:ro
     environment:
-      - TZ=UTC
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "--socks5-hostname", "localhost:9050", "-f", "http://httpbin.org/ip"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # Optional: monitoring service
-  monitor:
-    image: python:3.11-slim
-    depends_on:
-      - tor-anonymizer
-    volumes:
-      - .:/app
-    working_dir: /app
-    command: >
-      sh -c "pip install requests && 
-             python -c 'import time; import requests;
-             while True:
-               try:
-                 r = requests.get(\"http://httpbin.org/ip\", 
-                                 proxies={\"http\": \"socks5://tor-anonymizer:9050\"},
-                                 timeout=10)
-                 print(f\"IP: {r.json()[\\\"origin\\\"]} - {time.ctime()}\")
-                 time.sleep(60)
-               except Exception as e:
-                 print(f\"Error: {e}\")
-                 time.sleep(10)'"
+  # Optional: Web interface for monitoring
+  tor-monitor:
+    image: nginx:alpine

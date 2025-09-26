@@ -163,7 +163,7 @@ start_service() {
     log "Launching Tor Anonymizer..."
     if nohup python3 tor_anonymizer.py >> "$LOG_FILE" 2>&1 & then
         local pid=$!
-        sleep 3
+        sleep 5
         
         if kill -0 "$pid" 2>/dev/null; then
             success "Tor Anonymizer started (PID: $pid)"
@@ -171,6 +171,13 @@ start_service() {
             return 0
         else
             error "Process died immediately. Check logs: $LOG_FILE"
+            # Mostra gli ultimi errori dal log
+            if [[ -f "$LOG_FILE" ]]; then
+                error "Last errors from log:"
+                tail -10 "$LOG_FILE" | while read line; do
+                    error "  $line"
+                done
+            fi
             return 1
         fi
     else

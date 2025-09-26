@@ -1,18 +1,11 @@
-# TOR Configuration Template
-# Copy to /etc/tor/torrc and modify as needed
-
-SocksPort 9050
+# TOR Professional Configuration
+SOCKSPort 9050
 ControlPort 9051
-CookieAuthentication 1
-
-# IP Rotation Settings
-MaxCircuitDirtiness 10
-CircuitBuildTimeout 10
-LearnCircuitBuildTimeout 0
-
-# Security
+HashedControlPassword 16:872860B76453A77D60CA2BB8C1A7042072093276A3D701AD684053EC4C
+Log notice file /var/log/tor/tor.log
+DataDirectory /var/lib/tor
+ExitPolicy reject *:*
 SafeLogging 1
-ExitPolicy accept *:*
-
-# Performance
-MaxClientCircuitsPending 32
+TestSocks 1
+MaxCircuitDirtiness 600
+NewCircuitPeriod 30

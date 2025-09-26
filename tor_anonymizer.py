@@ -2,7 +2,6 @@
 """
 TOR Anonymizer v2.0.1 - Professional Privacy Tool with Fast IP Rotation
 Advanced Tor network anonymization with 10-second identity rotation
-Enhanced for maximum performance and reliability
 """
 
 import time
@@ -28,7 +27,6 @@ import socket
 import threading
 from datetime import datetime, timedelta
 import urllib3
-from http.client import HTTPConnection
 
 # Disable insecure warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -46,7 +44,7 @@ class Colors:
     END = '\033[0m'
 
 class IPRotationManager:
-    """Advanced manager for automatic IP rotation with 10-second intervals"""
+    """Manager for automatic IP rotation with configurable intervals"""
     
     def __init__(self, anonymizer: 'TorAnonymizer', interval: int = 10):
         self.anonymizer = anonymizer
@@ -55,17 +53,10 @@ class IPRotationManager:
         self.last_rotation = datetime.now()
         self.is_running = False
         self.rotation_thread = None
-        self.rotation_lock = threading.Lock()
         self.logger = anonymizer.logger
-        self.performance_stats = {
-            'successful_rotations': 0,
-            'failed_rotations': 0,
-            'average_rotation_time': 0.0,
-            'last_rotation_duration': 0.0
-        }
         
     def start_rotation(self):
-        """Start automatic IP rotation with 10-second intervals"""
+        """Start automatic IP rotation"""
         if self.is_running:
             self.logger.warning("Rotation already running")
             return
@@ -87,64 +78,27 @@ class IPRotationManager:
         self.logger.info("🛑 IP rotation stopped")
         
     def _rotation_worker(self):
-        """Worker thread for automatic rotation with performance monitoring"""
-        rotation_times = []
-        
+        """Worker thread for automatic rotation"""
         while self.is_running:
             try:
-                # Calculate precise sleep time
-                sleep_start = time.time()
-                while self.is_running and (time.time() - sleep_start) < self.interval:
-                    time.sleep(0.1)  # Smaller sleep for more responsive shutdown
+                time.sleep(self.interval)
                 
-                if not self.is_running or not self.anonymizer.is_running:
-                    break
-                    
-                rotation_start = time.time()
-                
-                with self.rotation_lock:
-                    success = self.anonymizer.renew_identity()
-                
-                rotation_duration = time.time() - rotation_start
-                rotation_times.append(rotation_duration)
-                
-                if success:
-                    self.rotation_count += 1
-                    self.last_rotation = datetime.now()
-                    self.performance_stats['successful_rotations'] += 1
-                    self.performance_stats['last_rotation_duration'] = rotation_duration
-                    
-                    # Keep only last 10 rotation times for average
-                    if len(rotation_times) > 10:
-                        rotation_times.pop(0)
-                    self.performance_stats['average_rotation_time'] = sum(rotation_times) / len(rotation_times)
-                    
-                    # Log every 5 rotations to avoid spam
-                    if self.rotation_count % 5 == 0:
-                        ip = self.anonymizer.get_current_ip() or "Unknown"
-                        self.logger.info(
-                            f"🔄 Rotation #{self.rotation_count} | IP: {ip} | "
-                            f"Duration: {rotation_duration:.2f}s | "
-                            f"Avg: {self.performance_stats['average_rotation_time']:.2f}s"
-                        )
-                else:
-                    self.performance_stats['failed_rotations'] += 1
-                    self.logger.warning(f"Rotation #{self.rotation_count + 1} failed")
-                    
+                if self.is_running and self.anonymizer.is_running:
+                    if self.anonymizer.renew_identity():
+                        self.rotation_count += 1
+                        self.last_rotation = datetime.now()
+                        
+                        # Log rotation every 5 rotations to avoid spam
+                        if self.rotation_count % 5 == 0:
+                            ip = self.anonymizer.get_current_ip() or "Unknown"
+                            self.logger.info(
+                                f"🔄 Rotation #{self.rotation_count} completed | "
+                                f"IP: {ip} | Next rotation in {self.interval}s"
+                            )
+                            
             except Exception as e:
                 self.logger.error(f"Rotation worker error: {e}")
-                self.performance_stats['failed_rotations'] += 1
-                time.sleep(2)  # Wait before retrying
-
-    def get_stats(self) -> Dict[str, Any]:
-        """Get rotation statistics"""
-        return {
-            **self.performance_stats,
-            'total_rotations': self.rotation_count,
-            'rotation_interval': self.interval,
-            'is_running': self.is_running,
-            'last_rotation': self.last_rotation.isoformat() if self.last_rotation else None
-        }
+                time.sleep(5)
 
 class TorAnonymizer:
     """
@@ -169,7 +123,7 @@ class TorAnonymizer:
         self.validate_environment()
 
     def print_banner(self) -> None:
-        """Display professional banner with dynamic information"""
+        """Display professional banner"""
         rotation_interval = self.config.get('identity_rotation_interval', 10)
         tor_port = self.config.get('tor_port', 9050)
         control_port = self.config.get('control_port', 9051)
@@ -198,7 +152,7 @@ class TorAnonymizer:
         log_dir.mkdir(exist_ok=True)
         
         # Create more detailed log format
-        log_format = '%(asctime)s.%(msecs)03d - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+        log_format = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
         date_format = '%Y-%m-%d %H:%M:%S'
         
         logging.basicConfig(
@@ -225,11 +179,14 @@ class TorAnonymizer:
             
             # Check Tor installation
             try:
-                result = subprocess.run(["tor", "--version"], capture_output=True, check=True, text=True)
-                tor_version = result.stdout.strip().split('\n')[0]
-                self.logger.info(f"Tor installed: {tor_version}")
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                self.logger.warning("Tor is not installed or not in PATH")
+                result = subprocess.run(["tor", "--version"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    tor_version = result.stdout.strip().split('\n')[0]
+                    self.logger.info(f"Tor installed: {tor_version}")
+                else:
+                    self.logger.warning("Tor is not installed or not in PATH")
+            except Exception as e:
+                self.logger.warning(f"Tor check failed: {e}")
                 
         except ImportError as e:
             self.logger.error(f"Missing dependency: {e}")
@@ -241,27 +198,21 @@ class TorAnonymizer:
         default_config = {
             "tor_port": 9050,
             "control_port": 9051,
-            "identity_rotation_interval": 10,  # 10-second rotation
+            "identity_rotation_interval": 10,
             "max_retries": 3,
             "timeout": 30,
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0",
+            "user_agent": "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0",
             "socks5_host": "127.0.0.1",
             "log_level": "INFO",
             "auto_start_tor": True,
             "dns_leak_protection": True,
             "safe_browsing": True,
-            "max_circuit_dirtiness": 10,  # Match rotation interval
+            "max_circuit_dirtiness": 10,
             "exclude_nodes": "",
             "strict_nodes": False,
             "fast_rotation_mode": True,
-            "rotation_strategy": "time_based",
-            "min_rotation_interval": 10,
-            "max_rotation_interval": 300,
-            "rotation_variance": 5,
             "circuit_timeout": 60,
-            "max_circuits": 100,
-            "circuit_build_timeout": 10,
-            "learn_circuit_build_timeout": 0
+            "max_circuits": 100
         }
         
         config_path = Path(self.config_path)
@@ -276,22 +227,12 @@ class TorAnonymizer:
             except (json.JSONDecodeError, IOError) as e:
                 self.logger.warning(f"Config load error: {e}, using defaults")
         else:
-            self.logger.warning("Config file not found, creating default")
-            self.create_default_config(default_config)
+            self.logger.warning("Config file not found, using defaults")
         
         # Validate critical settings
         self.validate_config(default_config)
         
         return default_config
-
-    def create_default_config(self, config: Dict[str, Any]) -> None:
-        """Create default configuration file"""
-        try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=4, ensure_ascii=False)
-            self.logger.info("Default configuration created")
-        except IOError as e:
-            self.logger.error(f"Failed to create config: {e}")
 
     def validate_config(self, config: Dict[str, Any]) -> None:
         """Validate configuration parameters"""
@@ -304,7 +245,7 @@ class TorAnonymizer:
         if not (1024 <= config['control_port'] <= 65535):
             errors.append(f"Invalid control_port: {config['control_port']}")
         
-        # Validate rotation interval (allow 10-second rotation)
+        # Validate rotation interval
         if config['identity_rotation_interval'] < 5:
             self.logger.warning("Very fast rotation interval (<5s) may cause instability")
         elif config['identity_rotation_interval'] > 3600:
@@ -320,33 +261,41 @@ class TorAnonymizer:
         
         self.logger.info(f"Rotation interval set to {config['identity_rotation_interval']} seconds")
 
-    def validate_tor_connection(self) -> bool:
-        """Validate Tor connection before starting"""
+    def is_port_available(self, port: int) -> bool:
+        """Check if port is available"""
         try:
-            # Test SOCKS port
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(5)
-                result = sock.connect_ex(('127.0.0.1', self.config['tor_port']))
-                if result != 0:
-                    self.logger.error(f"Tor SOCKS port {self.config['tor_port']} not available")
-                    return False
-            
-            # Test control port
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(5)
-                result = sock.connect_ex(('127.0.0.1', self.config['control_port']))
-                if result != 0:
-                    self.logger.warning(f"Tor control port {self.config['control_port']} not available")
-            
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Connection validation failed: {e}")
+                sock.settimeout(1)
+                result = sock.connect_ex(('127.0.0.1', port))
+                return result != 0
+        except:
             return False
+
+    def kill_existing_tor(self):
+        """Kill existing Tor processes"""
+        try:
+            for proc in psutil.process_iter(['pid', 'name']):
+                if proc.info['name'] and 'tor' in proc.info['name'].lower():
+                    try:
+                        proc.terminate()
+                        proc.wait(timeout=5)
+                        self.logger.info(f"Killed existing Tor process: {proc.info['pid']}")
+                    except:
+                        try:
+                            proc.kill()
+                            self.logger.warning(f"Force killed Tor process: {proc.info['pid']}")
+                        except:
+                            pass
+            time.sleep(2)  # Wait for processes to terminate
+        except Exception as e:
+            self.logger.warning(f"Error killing existing Tor processes: {e}")
 
     def start_tor_service(self) -> bool:
         """Start Tor service with fast rotation configuration"""
         try:
+            # Kill existing Tor processes
+            self.kill_existing_tor()
+            
             # Create necessary directories
             Path("tor_data").mkdir(exist_ok=True)
             Path("logs").mkdir(exist_ok=True)
@@ -364,8 +313,8 @@ RunAsDaemon 0
 MaxCircuitDirtiness {self.config.get('max_circuit_dirtiness', 10)}
 NewCircuitPeriod 15
 MaxClientCircuitsPending 32
-CircuitBuildTimeout {self.config.get('circuit_build_timeout', 10)}
-LearnCircuitBuildTimeout {self.config.get('learn_circuit_build_timeout', 0)}
+CircuitBuildTimeout 10
+LearnCircuitBuildTimeout 0
 ClientUseIPv4 1
 ClientUseIPv6 0
 
@@ -378,40 +327,47 @@ WarnUnsafeSocks 1
 NumEntryGuards 1
 UseEntryGuards 1
 EnforceDistinctSubnets 1
-
-# Circuit management for fast rotation
-MaxCircuits {self.config.get('max_circuits', 100)}
-CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
 """.strip()
 
             with open('torrc', 'w', encoding='utf-8') as f:
                 f.write(torrc_content)
             
             # Start Tor
-            self.tor_process = subprocess.Popen([
-                "tor", "-f", "torrc"
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.tor_process = subprocess.Popen(
+                ["tor", "-f", "torrc"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
             
             self.logger.info("Waiting for Tor to start with fast rotation configuration...")
             
-            # Wait for startup with more attempts for fast rotation
-            for i in range(40):  # 40 attempts of 1 second
+            # Wait for startup
+            for i in range(30):
                 time.sleep(1)
+                if self.is_port_available(self.config['tor_port']):
+                    continue
+                    
                 try:
                     controller = Controller.from_port(port=self.config['control_port'])
                     controller.authenticate()
                     controller.close()
-                    self.logger.info("Tor service started successfully with fast rotation config")
+                    self.logger.info("Tor service started successfully")
                     
                     # Register cleanup
                     atexit.register(self.stop_tor_process)
                     return True
-                except Exception:
-                    if i % 10 == 0:  # Log every 10 seconds
-                        self.logger.info(f"Still waiting for Tor to start... ({i+1}s)")
+                except:
+                    if i % 5 == 0:
+                        self.logger.info(f"Waiting for Tor... ({i+1}/30)")
                     continue
                     
             self.logger.error("Tor service failed to start within timeout")
+            # Read error output for debugging
+            if self.tor_process:
+                stdout, stderr = self.tor_process.communicate(timeout=1)
+                if stderr:
+                    self.logger.error(f"Tor error: {stderr}")
             return False
             
         except Exception as e:
@@ -423,7 +379,7 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
         if self.tor_process:
             try:
                 self.tor_process.terminate()
-                self.tor_process.wait(timeout=10)
+                stdout, stderr = self.tor_process.communicate(timeout=10)
                 self.logger.info("Tor process stopped")
             except subprocess.TimeoutExpired:
                 self.tor_process.kill()
@@ -431,10 +387,12 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
                 self.logger.warning("Tor process killed forcefully")
             except Exception as e:
                 self.logger.error(f"Error stopping Tor process: {e}")
+            finally:
+                self.tor_process = None
 
     def connect_controller(self) -> bool:
         """Establish secure connection to Tor controller"""
-        max_retries = 5  # Increased for fast rotation setup
+        max_retries = 5
         
         for attempt in range(max_retries):
             try:
@@ -443,7 +401,7 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
                     port=self.config['control_port']
                 )
                 
-                # Try cookie authentication first
+                # Try cookie authentication
                 try:
                     self.controller.authenticate()
                     self.logger.info("Tor controller connected (cookie auth)")
@@ -457,16 +415,8 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
                 
                 if attempt == max_retries - 1:
                     self.logger.error("All connection attempts failed")
-                    
-                    # Try to start Tor automatically if configured
-                    if self.config.get('auto_start_tor', True):
-                        self.logger.info("Attempting to start Tor automatically...")
-                        if self.start_tor_service():
-                            time.sleep(3)  # Shorter sleep for fast setup
-                            continue
-                    
                     return False
-                time.sleep(1)  # Shorter sleep between attempts
+                time.sleep(2)
                 
             except stem.connection.AuthenticationFailure as e:
                 self.logger.error(f"Tor authentication failed: {e}")
@@ -494,48 +444,24 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
-            'DNT': '1',  # Do Not Track
+            'DNT': '1',
         })
         
-        # Security settings for fast rotation
-        session.trust_env = False  # Prevent system proxy interference
-        session.max_redirects = 3  # Reduced for faster rotation
-        
-        # Timeout settings optimized for fast rotation
-        session.request = lambda method, url, **kwargs: requests.Session.request(
-            self, method, url, timeout=self.config.get('timeout', 30), **kwargs
-        )
+        # Security settings
+        session.trust_env = False
+        session.max_redirects = 5
         
         return session
 
     def renew_identity(self) -> bool:
-        """Renew Tor circuit and identity with fast rotation optimization"""
+        """Renew Tor circuit and identity securely"""
         try:
             if self.controller and self.controller.is_authenticated():
-                # Clear DNS cache for faster rotation
-                try:
-                    self.controller.signal(Signal.CLEARDNSCACHE)
-                except:
-                    pass  # Ignore clear DNS cache errors
-                
-                # Request new identity
                 self.controller.signal(Signal.NEWNYM)
-                
-                # Reduced wait time for fast rotation
-                time.sleep(2)  # Reduced from 5 seconds
-                
-                # Verify new circuit is established
-                for _ in range(5):  # Quick verification attempts
-                    try:
-                        circuits = self.controller.get_circuits()
-                        if any(circuit.status == 'BUILT' for circuit in circuits):
-                            self.logger.debug("Identity renewed successfully")
-                            return True
-                        time.sleep(0.5)
-                    except:
-                        break
-                
-                return True  # Assume success even if verification fails
+                # Reduced wait time for faster rotation
+                time.sleep(2)
+                self.logger.debug("Tor identity renewed successfully")
+                return True
             else:
                 self.logger.error("Controller not authenticated")
                 return False
@@ -546,10 +472,9 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
     def validate_ip(self, ip: str) -> bool:
         """Enhanced IP validation with Tor network checks"""
         try:
-            # Basic IP format validation
             ipaddress.ip_address(ip)
             
-            # Check for common non-Tor IPs (basic heuristic)
+            # Check for common non-Tor IPs
             non_tor_ranges = [
                 ipaddress.ip_network('192.168.0.0/16'),
                 ipaddress.ip_network('10.0.0.0/8'),
@@ -567,22 +492,17 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
             return False
 
     def get_current_ip(self) -> Optional[str]:
-        """Get current external IP through Tor with fast validation"""
-        # Fast IP checking services
+        """Get current external IP through Tor with validation"""
         test_services = [
             'http://httpbin.org/ip',
             'http://icanhazip.com',
-            'http://ifconfig.me/ip',
-            'http://api.ipify.org'
+            'http://ifconfig.me/ip'
         ]
-        
-        random.shuffle(test_services)  # Distribute load
         
         for service in test_services:
             try:
-                response = self.session.get(service, timeout=5)  # Reduced timeout
+                response = self.session.get(service, timeout=10)
                 if response.status_code == 200:
-                    # Extract IP based on service response format
                     if 'httpbin' in service:
                         ip = response.json().get('origin', '').split(',')[0]
                     else:
@@ -590,16 +510,18 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
                     
                     if self.validate_ip(ip):
                         return ip
-            except Exception:
+            except Exception as e:
+                self.logger.debug(f"IP service {service} failed: {e}")
                 continue
         
+        self.logger.error("All IP check services failed")
         return None
 
     def test_connection(self) -> bool:
-        """Fast comprehensive Tor connection test"""
+        """Comprehensive Tor connection test"""
         self.logger.info("Testing Tor connection...")
         
-        # Test 1: Basic connectivity with fast timeout
+        # Test 1: Basic connectivity
         try:
             ip = self.get_current_ip()
             if not ip:
@@ -612,7 +534,7 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
             self.logger.error(f"Connection test failed: {e}")
             return False
         
-        # Test 2: Quick Tor project check
+        # Test 2: Tor project check
         try:
             response = self.session.get('https://check.torproject.org', timeout=10)
             if "Congratulations" in response.text:
@@ -626,25 +548,19 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
         return True
 
     def start(self) -> bool:
-        """Start Tor anonymizer service with fast rotation"""
+        """Start Tor anonymizer service securely"""
         self.print_banner()
         self.start_time = datetime.now()
-        self.logger.info("Initializing Tor Anonymizer with fast rotation...")
+        self.logger.info("Initializing Tor Anonymizer...")
         
-        # Setup signal handlers for graceful shutdown
+        # Setup signal handlers
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGTERM, self.signal_handler)
         
-        # Validate existing Tor connection or start new one
-        if not self.validate_tor_connection():
-            if self.config.get('auto_start_tor', True):
-                self.logger.info("Auto-starting Tor service with fast rotation...")
-                if not self.start_tor_service():
-                    self.logger.error("Failed to start Tor service")
-                    return False
-            else:
-                self.logger.error("Tor not running and auto-start disabled")
-                return False
+        # Start Tor service
+        if not self.start_tor_service():
+            self.logger.error("Failed to start Tor service")
+            return False
         
         # Connect to Tor controller
         if not self.connect_controller():
@@ -664,7 +580,7 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
             self.logger.error("Initial connection test failed")
             return False
         
-        # Start automatic rotation if enabled
+        # Start automatic rotation
         if rotation_interval > 0:
             self.rotation_manager.start_rotation()
         
@@ -693,15 +609,13 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
             
             if self.start_time:
                 uptime = (datetime.now() - self.start_time).total_seconds()
-                self.logger.info(f"Tor Anonymizer stopped cleanly after {uptime:.2f} seconds")
-            else:
-                self.logger.info("Tor Anonymizer stopped cleanly")
+                self.logger.info(f"Tor Anonymizer stopped after {uptime:.2f} seconds")
                 
         except Exception as e:
             self.logger.error(f"Error during shutdown: {e}")
 
     def make_secure_request(self, url: str, method: str = "GET", **kwargs) -> Optional[requests.Response]:
-        """Make HTTP request through Tor with enhanced security and fast rotation"""
+        """Make HTTP request through Tor with enhanced security"""
         if not self.is_running or not self.session:
             self.logger.error("Anonymizer not running")
             return None
@@ -727,30 +641,14 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
                 if attempt < max_retries - 1:
                     self.logger.info("Rotating identity and retrying...")
                     self.renew_identity()
-                    time.sleep(1)  # Reduced sleep for faster rotation
+                    time.sleep(2)
                 else:
                     self.logger.error(f"All {max_retries} attempts failed for {url}")
         
         return None
 
-    def get_status(self) -> Dict[str, Any]:
-        """Get current anonymizer status"""
-        ip = self.get_current_ip()
-        stats = self.rotation_manager.get_stats() if self.rotation_manager else {}
-        
-        return {
-            'is_running': self.is_running,
-            'current_ip': ip,
-            'rotation_stats': stats,
-            'uptime': (datetime.now() - self.start_time).total_seconds() if self.start_time else 0,
-            'tor_ports': {
-                'socks': self.config.get('tor_port'),
-                'control': self.config.get('control_port')
-            }
-        }
-
     def run_interactive(self) -> None:
-        """Run in interactive mode with enhanced display"""
+        """Run in interactive mode"""
         self.logger.info("Interactive mode started. Press Ctrl+C to exit.")
         
         rotation_count = 0
@@ -759,18 +657,18 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
         
         try:
             while self.is_running:
-                # Display status with colors and emojis
+                # Display status
                 ip = self.get_current_ip()
                 current_time = time.time()
                 uptime = current_time - start_time
                 
                 if ip and ip != last_ip:
                     status_msg = f"{Colors.GREEN}🔄 IP: {ip} | Rotations: {rotation_count} | Uptime: {int(uptime)}s{Colors.END}"
-                    print(status_msg)
+                    print(f"\r{status_msg}", end="", flush=True)
                     last_ip = ip
+                    rotation_count += 1
                 
-                # Brief sleep to reduce CPU usage
-                time.sleep(0.5)
+                time.sleep(1)
                 
         except KeyboardInterrupt:
             self.logger.info("Interactive mode interrupted by user")
@@ -778,36 +676,16 @@ CircuitStreamTimeout {self.config.get('circuit_timeout', 60)}
             self.stop()
 
 def main():
-    """Main entry point with comprehensive argument parsing"""
-    parser = argparse.ArgumentParser(
-        description='TOR Anonymizer v2.0.1 - Professional Privacy Tool with Fast IP Rotation',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  tor_anonymizer.py                          # Interactive mode with 10s rotation
-  tor_anonymizer.py --test                   # Test connection
-  tor_anonymizer.py --url "https://example.com"  # Single request
-  tor_anonymizer.py --config custom.json     # Custom config
-  tor_anonymizer.py --interval 5             # 5-second rotation
-        """
-    )
+    """Main entry point"""
+    parser = argparse.ArgumentParser(description='TOR Anonymizer v2.0.1 - Professional Privacy Tool')
     
-    parser.add_argument('-c', '--config', default='settings.json', 
-                       help='Path to configuration file')
-    parser.add_argument('--test', action='store_true', 
-                       help='Test connection and exit')
+    parser.add_argument('-c', '--config', default='settings.json', help='Configuration file')
+    parser.add_argument('--test', action='store_true', help='Test connection and exit')
     parser.add_argument('--url', help='URL to request through Tor')
-    parser.add_argument('--method', default='GET', 
-                       choices=['GET', 'POST', 'HEAD', 'OPTIONS'],
-                       help='HTTP method for request')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                       help='Enable verbose logging')
-    parser.add_argument('--no-auto-tor', action='store_true',
-                       help='Disable automatic Tor startup')
-    parser.add_argument('--interval', type=int, default=10,
-                       help='IP rotation interval in seconds (default: 10)')
-    parser.add_argument('--status', action='store_true',
-                       help='Show current status and exit')
+    parser.add_argument('--method', default='GET', choices=['GET', 'POST', 'HEAD', 'OPTIONS'])
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose logging')
+    parser.add_argument('--no-auto-tor', action='store_true', help='Disable automatic Tor startup')
+    parser.add_argument('--interval', type=int, help='IP rotation interval in seconds')
     
     args = parser.parse_args()
     
@@ -821,7 +699,6 @@ Examples:
         if args.no_auto_tor:
             anonymizer.config['auto_start_tor'] = False
         
-        # Override rotation interval if specified
         if args.interval:
             anonymizer.config['identity_rotation_interval'] = args.interval
         
@@ -833,24 +710,13 @@ Examples:
         if args.test:
             print("✓ Connection test completed successfully")
             anonymizer.stop()
-            return
-        
-        elif args.status:
-            status = anonymizer.get_status()
-            print(json.dumps(status, indent=2))
-            anonymizer.stop()
-            return
-            
         elif args.url:
             response = anonymizer.make_secure_request(args.url, method=args.method)
             if response:
                 print(f"✓ Response Status: {response.status_code}")
-                print(f"✓ Content Length: {len(response.text)} bytes")
-                print(f"✓ Final URL: {response.url}")
             else:
                 print("✗ Request failed")
             anonymizer.stop()
-            
         else:
             anonymizer.run_interactive()
             
@@ -858,7 +724,6 @@ Examples:
         print("\n🛑 Shutdown initiated by user")
     except Exception as e:
         print(f"❌ Application error: {e}")
-        logging.getLogger().exception("Application crash")
         sys.exit(1)
 
 if __name__ == "__main__":

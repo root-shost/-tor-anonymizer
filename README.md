@@ -1,62 +1,25 @@
-# Tor Anonymizer v2.0 🔒
+# TOR Anonymizer 🔒
 
-**Tool completo per anonimizzazione e cambio IP automatico tramite rete Tor**
+**Professional Privacy Tool for Advanced Anonymization**
 
-![Tor Anonymizer](https://img.shields.io/badge/Version-2.0-green)
-![License](https://img.shields.io/badge/License-MIT-blue)
-![Platform](https://img.shields.io/badge/Platform-Kali%20Linux-purple)
+![Version](https://img.shields.io/badge/version-2.0-blue)
+![Python](https://img.shields.io/badge/python-3.8%2B-green)
+![License](https://img.shields.io/badge/license-MIT-orange)
 
-## ✨ Caratteristiche
+## 👨‍💻 Author
+**root-shost* - Offensive & Defensive Security Specialist
 
-- ✅ **Cambio IP automatico ogni 10 secondi**
-- ✅ **Browser anonimo integrato**
-- ✅ **Interfaccia utente intuitiva**
-- ✅ **Monitoraggio in tempo reale**
-- ✅ **Configurazione automatica**
-- ✅ **Supporto multi-piattaforma**
+## 🚀 Features
 
-## 🚀 Installazione Rapida
+- ✅ Ultra-fast IP rotation (10-second intervals)
+- ✅ Professional Python implementation
+- ✅ Docker container support
+- ✅ Real-time monitoring
+- ✅ Comprehensive logging
+
+## 📦 Quick Start
 
 ```bash
-
-╔══════════════════════════════════════════════════════════════╗
-║                   TOR ANONYMIZER v2.0                        ║
-║                 Ultimate Privacy Tool                        ║
-╚══════════════════════════════════════════════════════════════╝
-
-Scegli un'opzione:
-  1) 📦 Installazione e Configurazione Completa
-  2) 🚀 Avvia Tor
-  3) ⏹️  Arresta Tor
-  4) 🔄 Riavvia Tor
-  5) 🌐 Cambia IP (Nuova Identità)
-  6) 🔄 Cambio IP Automatico (10 secondi)
-  7) 🌐 Browser Anonimo
-  8) 📊 Monitoraggio Tor (Nyx)
-  9) 📋 Stato Sistema
-  0) ❌ Esci
-
-
-# Clona il repository
-git clone https://github.com/tuo-repo/tor-anonymizer.git
+git clone https://github.com/root-shost/tor-anonymizer.git
 cd tor-anonymizer
-
-# Esegui lo script (richiede root)
-sudo ./tor-anonymizer.sh
-
-# Installazione completa
-sudo tor-anonymizer.sh install
-
-# Avvio servizio
-sudo tor-anonymizer.sh start
-
-IP Attuale: <YOUR-IP>
-
-# Cambio IP immediato
-sudo tor-anonymizer.sh changeip
-
-# Browser anonimo
-sudo tor-anonymizer.sh browser
-
-# Monitoraggio
-sudo tor-anonymizer.sh monitor
+sudo ./tor-anonymizer.sh --install

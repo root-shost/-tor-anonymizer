@@ -1,37 +1,28 @@
 FROM python:3.9-slim
 
-LABEL maintainer="root-shost"
-LABEL version="2.0"
-LABEL description="TOR Anonymizer - Professional Privacy Tool"
-
-# Install system dependencies
+# Installazione sicura
 RUN apt-get update && apt-get install -y \
     tor \
-    proxychains4 \
-    curl \
-    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
-# Create application directory
+# Utente non-root per sicurezza
+RUN useradd -m -u 1000 toruser
 WORKDIR /app
 
-# Copy application files
+# Copia file necessari
 COPY requirements.txt .
-COPY src/ ./src/
-COPY config/ ./config/
+COPY tor_anonymizer.py .
+COPY torrc.example .
 
-# Install Python dependencies
+# Installa dipendenze Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create non-root user
-RUN useradd -r -s /bin/false toruser
+# Configura permessi sicuri
 RUN chown -R toruser:toruser /app
-
-# Expose Tor ports
-EXPOSE 9050 9051
-
-# Switch to non-root user
 USER toruser
 
-# Set entrypoint
-CMD ["python", "src/tor_anonymizer.py"]
+# Configurazione Tor sicura
+COPY torrc.example /etc/tor/torrc
+
+# Avvio applicazione
+CMD ["python", "tor_anonymizer.py"]

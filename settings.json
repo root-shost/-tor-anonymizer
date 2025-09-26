@@ -25,7 +25,7 @@
     "random_user_agent": true,
     "circuit_timeout": 30,
     "max_circuits": 50,
-    "security_level": "high",
+    "security_level": "enterprise",
     "dummy_traffic_enabled": true,
     "dummy_traffic_interval": 30,
     "multi_hop_enabled": true,
@@ -34,5 +34,17 @@
     "traffic_obfuscation": true,
     "use_entry_guards": true,
     "num_entry_guards": 3,
-    "long_lived_ports": true
+    "long_lived_ports": true,
+    "kill_switch_enabled": true,
+    "traffic_monitoring": true,
+    "auto_circuit_rotation": true,
+    "bridge_obfs4": true,
+    "anti_fingerprinting": true,
+    "system_hardening": true,
+    "firewall_protection": true,
+    "enterprise_mode": true,
+    "advanced_logging": false,
+    "emergency_shutdown": true,
+    "auto_backup": true,
+    "security_audit": true
 }

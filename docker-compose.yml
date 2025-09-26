@@ -2,30 +2,60 @@ version: '3.8'
 
 services:
   tor-anonymizer:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: tor-anonymizer
+    hostname: tor-anonymizer
     restart: unless-stopped
     ports:
       - "9050:9050"  # Tor SOCKS port
       - "9051:9051"  # Tor control port
+      - "9080:9080"  # Monitoring dashboard (optional)
     volumes:
       - ./logs:/app/logs
       - ./tor_data:/app/tor_data
       - ./settings.json:/app/settings.json:ro
+      - ./torrc:/app/torrc:ro
     environment:
       - PYTHONUNBUFFERED=1
+      - TZ=UTC
     healthcheck:
-      test: ["CMD", "curl", "--socks5-hostname", "localhost:9050", "-f", "http://httpbin.org/ip"]
+      test: ["CMD-SHELL", "python3 -c \"import requests; r=requests.get('http://httpbin.org/ip', proxies={'http': 'socks5h://localhost:9050', 'https': 'socks5h://localhost:9050'}, timeout=30); print('Health check passed:', r.status_code)\""]
       interval: 30s
-      timeout: 10s
+      timeout: 20s
       retries: 3
-      start_period: 40s
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
-        max-file: "3"
+        max-file: "5"
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - tor-network
 
-  # Optional: Web interface for monitoring
+  # Optional monitoring service
   tor-monitor:
     image: nginx:alpine
+    container_name: tor-monitor
+    ports:
+      - "8080:80"
+    volumes:
+      - ./monitoring:/usr/share/nginx/html:ro
+    depends_on:
+      - tor-anonymizer
+    networks:
+      - tor-network
+
+networks:
+  tor-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

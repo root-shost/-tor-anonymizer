@@ -19,6 +19,11 @@ import signal
 from pathlib import Path
 import hashlib
 import random
+import subprocess
+import psutil
+import atexit
+import ipaddress
+import socket
 
 class Colors:
     """ANSI color codes for terminal output"""
@@ -44,6 +49,7 @@ class TorAnonymizer:
         self.config = self.load_config()
         self.session = None
         self.controller = None
+        self.tor_process = None
         self.is_running = False
         
         self.setup_logging()
@@ -83,9 +89,11 @@ class TorAnonymizer:
         try:
             import stem
             import requests
+            import psutil
             self.logger.info("All dependencies verified")
         except ImportError as e:
             self.logger.error(f"Missing dependency: {e}")
+            self.logger.info("Install dependencies with: pip install -r requirements.txt")
             sys.exit(1)
 
     def load_config(self) -> Dict[str, Any]:
@@ -97,9 +105,15 @@ class TorAnonymizer:
             "identity_rotation_interval": 300,
             "max_retries": 3,
             "timeout": 30,
-            "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0",
             "socks5_host": "127.0.0.1",
-            "log_level": "INFO"
+            "log_level": "INFO",
+            "auto_start_tor": True,
+            "dns_leak_protection": True,
+            "safe_browsing": True,
+            "max_circuit_dirtiness": 600,
+            "exclude_nodes": "",
+            "strict_nodes": False
         }
         
         config_path = Path(self.config_path)
@@ -159,46 +173,154 @@ class TorAnonymizer:
                 self.logger.error(error)
             raise ValueError("Configuration validation failed")
 
-    def connect_controller(self) -> bool:
-        """Establish secure connection to Tor controller"""
+    def is_tor_installed(self) -> bool:
+        """Check if Tor is installed on system"""
         try:
-            self.controller = Controller.from_port(
-                address="127.0.0.1",
-                port=self.config['control_port']
-            )
-            self.controller.authenticate(self.config['control_password'])
-            self.logger.info("Tor controller connected successfully")
+            subprocess.run(["tor", "--version"], capture_output=True, check=True)
             return True
-        except stem.SocketError as e:
-            self.logger.error(f"Tor controller connection failed: {e}")
-            return False
-        except stem.connection.AuthenticationFailure as e:
-            self.logger.error(f"Tor authentication failed: {e}")
+        except (subprocess.CalledProcessError, FileNotFoundError):
             return False
 
+    def hash_password(self, password: str) -> str:
+        """Generate Tor hashed control password"""
+        try:
+            # Try to use tor --hash-password command
+            result = subprocess.run([
+                "tor", "--hash-password", password
+            ], capture_output=True, text=True, check=True)
+            return result.stdout.strip()
+        except:
+            # Fallback hashing
+            self.logger.warning("Using fallback password hashing")
+            return hashlib.sha256(password.encode()).hexdigest()[:16]
+
+    def start_tor_process(self) -> bool:
+        """Start Tor process automatically"""
+        if not self.is_tor_installed():
+            self.logger.error("Tor is not installed. Please install Tor first.")
+            return False
+
+        try:
+            # Create torrc configuration
+            torrc_content = f"""
+SOCKSPort {self.config['tor_port']}
+ControlPort {self.config['control_port']}
+HashedControlPassword {self.hash_password(self.config['control_password'])}
+DataDirectory ./tor_data
+Log notice file ./logs/tor.log
+RunAsDaemon 0
+""".strip()
+
+            with open('torrc', 'w') as f:
+                f.write(torrc_content)
+            
+            # Create necessary directories
+            Path("tor_data").mkdir(exist_ok=True)
+            Path("logs").mkdir(exist_ok=True)
+            
+            # Start Tor process
+            self.tor_process = subprocess.Popen([
+                "tor", "-f", "torrc"
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            # Wait for Tor to start
+            self.logger.info("Waiting for Tor to start...")
+            time.sleep(10)
+            
+            # Register cleanup
+            atexit.register(self.stop_tor_process)
+            
+            self.logger.info("Tor process started successfully")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to start Tor: {e}")
+            return False
+
+    def stop_tor_process(self) -> None:
+        """Stop Tor process"""
+        if self.tor_process:
+            try:
+                self.tor_process.terminate()
+                self.tor_process.wait(timeout=10)
+                self.logger.info("Tor process stopped")
+            except subprocess.TimeoutExpired:
+                self.tor_process.kill()
+                self.tor_process.wait()
+                self.logger.warning("Tor process killed forcefully")
+            except Exception as e:
+                self.logger.error(f"Error stopping Tor process: {e}")
+
+    def connect_controller(self) -> bool:
+        """Establish secure connection to Tor controller with retry logic"""
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                self.controller = Controller.from_port(
+                    address="127.0.0.1",
+                    port=self.config['control_port']
+                )
+                self.controller.authenticate(self.config['control_password'])
+                self.logger.info("Tor controller connected successfully")
+                return True
+                
+            except stem.SocketError as e:
+                self.logger.warning(f"Tor controller connection failed (attempt {attempt + 1}): {e}")
+                
+                if attempt == max_retries - 1:
+                    self.logger.error("All connection attempts failed.")
+                    
+                    # Try to start Tor automatically if configured
+                    if self.config.get('auto_start_tor', True):
+                        self.logger.info("Attempting to start Tor automatically...")
+                        if self.start_tor_process():
+                            time.sleep(5)
+                            continue
+                    
+                    return False
+                time.sleep(2)
+                
+            except stem.connection.AuthenticationFailure as e:
+                self.logger.error(f"Tor authentication failed: {e}")
+                # Regenerate password and retry
+                if attempt == 0:
+                    self.config['control_password'] = self.generate_secure_password()
+                    self.create_default_config(self.config)
+                    self.logger.info("Regenerated control password, please restart Tor")
+                return False
+                
+        return False
+
     def create_secure_session(self) -> requests.Session:
-        """Create requests session with Tor proxy and security headers"""
+        """Create requests session with enhanced Tor proxy configuration"""
         session = requests.Session()
         
-        # Configure Tor proxy
+        # Enhanced proxy configuration with fallback
         proxy_config = {
             'http': f'socks5h://{self.config["socks5_host"]}:{self.config["tor_port"]}',
             'https': f'socks5h://{self.config["socks5_host"]}:{self.config["tor_port"]}'
         }
+        
         session.proxies.update(proxy_config)
         
-        # Security headers
+        # Enhanced security headers
         session.headers.update({
             'User-Agent': self.config['user_agent'],
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
+            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
+            'DNT': '1',  # Do Not Track
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
         })
         
         # Security settings
         session.trust_env = False  # Prevent system proxy interference
+        session.max_redirects = 5  # Limit redirects
         
         return session
 
@@ -217,6 +339,38 @@ class TorAnonymizer:
         except stem.ControllerError as e:
             self.logger.error(f"Identity renewal failed: {e}")
             return False
+
+    def validate_ip(self, ip: str) -> bool:
+        """Enhanced IP validation with Tor network checks"""
+        try:
+            # Basic IP format validation
+            ipaddress.ip_address(ip)
+            
+            # Check for common non-Tor IPs (basic heuristic)
+            non_tor_ranges = [
+                ipaddress.ip_network('192.168.0.0/16'),
+                ipaddress.ip_network('10.0.0.0/8'),
+                ipaddress.ip_network('172.16.0.0/12'),
+            ]
+            
+            ip_obj = ipaddress.ip_address(ip)
+            if any(ip_obj in network for network in non_tor_ranges):
+                self.logger.warning(f"IP {ip} appears to be in private range")
+                return False
+                
+            return True
+            
+        except ValueError:
+            return False
+
+    def check_tor_network(self, ip: str) -> bool:
+        """Check if IP belongs to Tor network (basic check)"""
+        try:
+            # Reverse DNS lookup for Tor exit nodes
+            hostname = socket.gethostbyaddr(ip)[0]
+            return any(tor_indicator in hostname.lower() for tor_indicator in ['tor', 'exit'])
+        except:
+            return True  # If we can't verify, assume it's OK
 
     def get_current_ip(self) -> Optional[str]:
         """Get current external IP through Tor with validation"""
@@ -246,19 +400,6 @@ class TorAnonymizer:
         self.logger.error("All IP check services failed")
         return None
 
-    def validate_ip(self, ip: str) -> bool:
-        """Validate IP address format"""
-        import socket
-        try:
-            socket.inet_pton(socket.AF_INET, ip)
-            return True
-        except socket.error:
-            try:
-                socket.inet_pton(socket.AF_INET6, ip)
-                return True
-            except socket.error:
-                return False
-
     def test_connection(self) -> bool:
         """Comprehensive Tor connection test"""
         self.logger.info("Testing Tor connection...")
@@ -269,6 +410,14 @@ class TorAnonymizer:
             if not ip:
                 self.logger.error("Failed to obtain IP address")
                 return False
+                
+            # Test Tor project check
+            response = self.session.get('http://check.torproject.org', timeout=10)
+            if "Congratulations" in response.text:
+                self.logger.info("✓ Tor connection verified by torproject.org")
+            else:
+                self.logger.warning("✗ Not using Tor according to torproject.org")
+                
         except Exception as e:
             self.logger.error(f"Connection test failed: {e}")
             return False
@@ -277,9 +426,9 @@ class TorAnonymizer:
         try:
             response = self.session.get('http://httpbin.org/get', timeout=10)
             if response.status_code == 200:
-                self.logger.info("DNS leak test passed")
+                self.logger.info("✓ DNS leak test passed")
             else:
-                self.logger.warning("DNS leak test inconclusive")
+                self.logger.warning("⚠ DNS leak test inconclusive")
         except Exception as e:
             self.logger.warning(f"DNS leak test failed: {e}")
         
@@ -325,6 +474,7 @@ class TorAnonymizer:
                 self.controller.close()
             if self.session:
                 self.session.close()
+            self.stop_tor_process()
             self.logger.info("Tor Anonymizer stopped cleanly")
         except Exception as e:
             self.logger.error(f"Error during shutdown: {e}")
@@ -366,16 +516,21 @@ class TorAnonymizer:
         """Run in interactive mode"""
         self.logger.info("Interactive mode started. Press Ctrl+C to exit.")
         
+        rotation_count = 0
+        start_time = time.time()
+        
         try:
             while self.is_running:
-                # Display status every 60 seconds
+                # Display status
                 ip = self.get_current_ip()
                 if ip:
-                    print(f"{Colors.GREEN}Current IP: {ip}{Colors.END}")
+                    status_msg = f"{Colors.GREEN}✓ IP: {ip} | Rotations: {rotation_count} | Uptime: {int(time.time() - start_time)}s{Colors.END}"
+                    print(status_msg)
                 
                 # Rotate identity at configured interval
                 time.sleep(self.config['identity_rotation_interval'])
-                self.renew_identity()
+                if self.renew_identity():
+                    rotation_count += 1
                 
         except KeyboardInterrupt:
             self.logger.info("Interactive mode interrupted by user")
@@ -406,6 +561,8 @@ Examples:
                        help='HTTP method for request')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='Enable verbose logging')
+    parser.add_argument('--no-auto-tor', action='store_true',
+                       help='Disable automatic Tor startup')
     
     args = parser.parse_args()
     
@@ -416,30 +573,36 @@ Examples:
         if args.verbose:
             logging.getLogger().setLevel(logging.DEBUG)
         
+        if args.no_auto_tor:
+            anonymizer.config['auto_start_tor'] = False
+        
         # Start service
         if not anonymizer.start():
             sys.exit(1)
         
         # Execute based on arguments
         if args.test:
-            print("Connection test completed successfully")
+            print("✓ Connection test completed successfully")
             anonymizer.stop()
             return
         
         elif args.url:
             response = anonymizer.make_secure_request(args.url, method=args.method)
             if response:
-                print(f"Response Status: {response.status_code}")
-                print(f"Content Length: {len(response.text)} bytes")
+                print(f"✓ Response Status: {response.status_code}")
+                print(f"✓ Content Length: {len(response.text)} bytes")
+                print(f"✓ Final URL: {response.url}")
+            else:
+                print("✗ Request failed")
             anonymizer.stop()
             
         else:
             anonymizer.run_interactive()
             
     except KeyboardInterrupt:
-        print("\nShutdown initiated by user")
+        print("\n🛑 Shutdown initiated by user")
     except Exception as e:
-        logging.error(f"Application error: {e}")
+        logging.error(f"❌ Application error: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -44,6 +44,9 @@ L'uso non autorizzato può risultare in:
 git clone https://github.com/root-shost/-tor-anonymizer.git
 cd tor-anonymizer
 
+# Run the automatic installer
+./install.sh
+
 # Install dependencies
 ```bash
 pip install -r requirements.txt

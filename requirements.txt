@@ -3,3 +3,4 @@ stem>=1.8.0
 psutil>=5.9.0
 fake-useragent>=1.1.0
 PySocks>=1.7.1
+urllib3>=1.26.0

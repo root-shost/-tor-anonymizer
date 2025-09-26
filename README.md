@@ -16,7 +16,7 @@ Professional Privacy Tool for Advanced Anonymization
 
 **⚠️ Use responsibly and comply with all applicable laws.**
 
-# 👨‍💻 Author **Andrea Filippo Mongelli * - Offensive & Defensive Security Specialist
+# 👨‍💻 Author **Andrea Filippo Mongelli * - Offensive & Defensive Security Specialist**
 
 ## 🚀 Features
 

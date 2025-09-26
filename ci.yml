@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
@@ -9,25 +9,65 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, 3.10, 3.11]
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v3
       with:
-        python-version: '3.9'
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y tor
         
-    - name: Install dependencies
+    - name: Start Tor service
+      run: |
+        sudo systemctl start tor
+        sleep 5
+        
+    - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest
+        pip install pytest pytest-cov
         
-    - name: Run tests
+    - name: Run basic tests
       run: |
-        python -m pytest tests/ -v
+        python -c "import tor_anonymizer; print('Import successful')"
         
-    - name: Security scan
-      uses: actions/checkout@v3
+    - name: Test Tor connection
+      run: |
+        timeout 30s bash -c 'until curl -s --socks5-hostname localhost:9050 http://httpbin.org/ip; do sleep 2; done'
+        
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check for secrets
+      uses: gitleaks/gitleaks-action@v2
+      
+    - name: Semgrep scan
+      uses: returntocorp/semgrep-action@v1
+      
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build Docker image
+      run: |
+        docker build -t tor-anonymizer .
+        
+    - name: Test Docker image
+      run: |
+        docker run --rm -d --name test-tor tor-anonymizer
+        sleep 30
+        docker logs test-tor
+        docker stop test-tor

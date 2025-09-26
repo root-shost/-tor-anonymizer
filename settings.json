@@ -1,11 +1,12 @@
 {
     "tor_port": 9050,
     "control_port": 9051,
-    "control_password": "change_this_to_secure_password_123!",
+    "control_password": "CHANGE_THIS_PASSWORD_BEFORE_USE",
     "identity_rotation_interval": 300,
     "max_retries": 3,
     "timeout": 30,
     "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "socks5_host": "127.0.0.1",
-    "log_level": "INFO"
+    "log_level": "INFO",
+    "auto_rotate": true
 }

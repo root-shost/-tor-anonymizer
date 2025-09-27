@@ -1,0 +1,9 @@
+{
+    "canvas_noise": true,
+    "webgl_spoofing": true,
+    "font_masking": true,
+    "timezone_spoofing": true,
+    "screen_resolution_spoofing": true,
+    "audio_context_spoofing": true,
+    "hardware_concurrency_spoofing": true
+}

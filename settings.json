@@ -1,9 +1,9 @@
 {
     "tor_port": 9050,
     "control_port": 9051,
-    "identity_rotation_interval": 60,
-    "min_rotation_delay": 45,
-    "max_rotation_delay": 75,
+    "identity_rotation_interval": "random(30, 180)",
+    "min_rotation_delay": 15,
+    "max_rotation_delay": 300,
     "max_retries": 5,
     "timeout": 15,
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0",
@@ -25,9 +25,9 @@
     "random_user_agent": true,
     "circuit_timeout": 30,
     "max_circuits": 10,
-    "security_level": "enterprise",
+    "security_level": "government_grade",
     "dummy_traffic_enabled": true,
-    "dummy_traffic_interval": 60,
+    "dummy_traffic_interval": "random(45, 300)",
     "multi_hop_enabled": true,
     "guard_lifetime_days": 30,
     "random_delay_enabled": true,
@@ -46,5 +46,19 @@
     "advanced_logging": false,
     "emergency_shutdown": true,
     "auto_backup": true,
-    "security_audit": true
+    "security_audit": true,
+    "advanced_circuit_routing": {
+        "min_hops": 3,
+        "max_hops": 5,
+        "entry_node_countries": ["se", "ch", "is", "de"],
+        "exit_node_countries": ["nl", "us", "ca", "fr"],
+        "exclude_nodes": ["{ru}", "{cn}", "{kr}", "{ir}"]
+    },
+    "artificial_delays": {
+        "enabled": true,
+        "min_delay_ms": 500,
+        "max_delay_ms": 5000
+    },
+    "traffic_shape_mimicry": true,
+    "decoy_traffic_ratio": 3
 }

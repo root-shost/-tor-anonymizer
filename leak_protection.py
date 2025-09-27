@@ -4,6 +4,7 @@ SYSTEM-LEVEL LEAK PROTECTION MODULE
 Advanced protection against DNS, WebRTC, and system leaks
 """
 
+import json  # ⬅️ IMPORT MANCANTE AGGIUNTO
 import subprocess
 import os
 import sys
@@ -41,7 +42,7 @@ class SystemLeakProtection:
         """Load configuration"""
         try:
             with open(self.config_path, 'r') as f:
-                return json.load(f)
+                return json.load(f)  # ✅ ORA FUNZIONA!
         except:
             return {}
     

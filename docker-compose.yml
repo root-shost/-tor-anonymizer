@@ -4,35 +4,26 @@ services:
   tor-anonymizer:
     build: .
     container_name: tor-anonymizer
+    network_mode: "host"
+    privileged: true
     restart: unless-stopped
-    ports:
-      - "9050:9050"  # Tor SOCKS port
-      - "9051:9051"  # Tor control port
     volumes:
+      - ./data:/app/data
       - ./logs:/app/logs
-      - ./tor_data:/app/tor_data
-      - ./settings.json:/app/settings.json:ro
     environment:
-      - PYTHONUNBUFFERED=1
-    healthcheck:
-      test: ["CMD", "curl", "--socks5-hostname", "localhost:9050", "-f", "http://httpbin.org/ip"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+      - TZ=Europe/Rome
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
 
-  # Optional: Web interface for monitoring
-  tor-monitor:
-    image: nginx:alpine
-    container_name: tor-monitor
-    ports:
-      - "8080:80"
+  monitoring:
+    image: python:3.9
+    container_name: tor-monitoring
+    network_mode: "host"
+    restart: unless-stopped
     volumes:
-      - ./monitor:/usr/share/nginx/html
+      - .:/app
+    working_dir: /app
+    command: python3 -m tor_anonymizer --monitor
     depends_on:
       - tor-anonymizer

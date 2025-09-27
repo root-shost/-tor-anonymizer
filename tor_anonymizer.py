@@ -520,7 +520,7 @@ class UltimateTorAnonymizer:
                     time.sleep(rotation_interval)
                     
                     if self.enterprise_identity_rotation():
-                        ip = self.get_enterprise_stealth_ip()
+                        ip = stealth.get_enterprise_stealth_ip()
                         if ip:
                             uptime = int(time.time() - self.start_time)
                             status = f"{Colors.GREEN}🔄 Government-grade IP: {ip} | Rotations: {self.rotation_count} | Uptime: {uptime}s{Colors.END}"
@@ -668,11 +668,17 @@ class UltimateTorAnonymizer:
         return tests_passed >= 3
 
     def enable_enterprise_kill_switch(self) -> None:
-        """Enable government-grade kill switch protection"""
+        """Enable government-grade kill switch protection - VERSIONE CORRETTA"""
         if not self.config.get('kill_switch_enabled', True):
             return
             
         def government_kill_switch():
+            # ✅ DELAY INIZIALE per evitare falsi positivi
+            time.sleep(20)
+            
+            consecutive_failures = 0
+            max_consecutive_failures = 3
+            
             while self.is_running:
                 try:
                     # Advanced connection check with multiple endpoints
@@ -685,34 +691,46 @@ class UltimateTorAnonymizer:
                     connection_ok = False
                     for endpoint in endpoints:
                         try:
-                            response = self.session.get(endpoint, timeout=5, verify=False)
+                            response = self.session.get(endpoint, timeout=15, verify=False)
                             if response.status_code == 200:
                                 connection_ok = True
+                                consecutive_failures = 0  # Reset counter
                                 break
                         except:
                             continue
                     
                     if not connection_ok:
-                        self.kill_switch_active = True
-                        print("🚨 GOVERNMENT-GRADE KILL SWITCH ACTIVATED - Tor connection lost!")
-                        self.emergency_shutdown()
-                        break
+                        consecutive_failures += 1
+                        print(f"⚠️  Connection check failed ({consecutive_failures}/{max_consecutive_failures})")
                         
-                    # Advanced leak detection
-                    if self.leak_protector and ADVANCED_MODULES_AVAILABLE:
-                        if not self.leak_protector.check_dns_leaks():
+                        if consecutive_failures >= max_consecutive_failures:
                             self.kill_switch_active = True
-                            print("🚨 GOVERNMENT-GRADE KILL SWITCH ACTIVATED - DNS leak detected!")
+                            print("🚨 GOVERNMENT-GRADE KILL SWITCH ACTIVATED - Tor connection lost!")
                             self.emergency_shutdown()
                             break
+                    else:
+                        consecutive_failures = 0  # Reset on success
+                        
+                    # ✅ DNS LEAK CHECK OPZIONALE (SOLO WARNING)
+                    if self.leak_protector and ADVANCED_MODULES_AVAILABLE and consecutive_failures == 0:
+                        try:
+                            dns_status = self.leak_protector.check_dns_leaks()
+                            if not dns_status:
+                                print("⚠️  DNS leak detected - monitoring (kill switch remains inactive)")
+                                # ✅ NON attivare kill switch per DNS leaks
+                        except Exception as e:
+                            print(f"⚠️  DNS leak check error: {e}")
                             
-                except:
-                    self.kill_switch_active = True
-                    print("🚨 GOVERNMENT-GRADE KILL SWITCH ACTIVATED - Critical error!")
-                    self.emergency_shutdown()
-                    break
-                
-                time.sleep(10)
+                except Exception as e:
+                    print(f"⚠️  Kill switch monitoring error: {e}")
+                    consecutive_failures += 1
+                    if consecutive_failures >= max_consecutive_failures:
+                        self.kill_switch_active = True
+                        print("🚨 GOVERNMENT-GRADE KILL SWITCH ACTIVATED - Critical error!")
+                        self.emergency_shutdown()
+                        break
+                    
+                time.sleep(25)  # ✅ Controlla ogni 25 secondi
         
         kill_switch_thread = threading.Thread(target=government_kill_switch, daemon=True)
         kill_switch_thread.start()

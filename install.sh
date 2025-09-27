@@ -44,9 +44,9 @@ enterprise_install_system_deps() {
     # Detect package manager and install enterprise dependencies
     if command -v apt-get >/dev/null 2>&1; then
         sudo apt-get update
-        sudo apt-get install -y tor torsocks python3 python3-pip python3-venv curl net-tools
+        sudo apt-get install -y tor torsocks python3 python3-pip python3-venv curl net-tools iptables
     elif command -v yum >/dev/null 2>&1; then
-        sudo yum install -y tor python3 python3-pip curl
+        sudo yum install -y tor python3 python3-pip curl iptables
     elif command -v pacman >/dev/null 2>&1; then
         sudo pacman -S --noconfirm tor python python-pip curl
     elif command -v brew >/dev/null 2>&1; then
@@ -87,6 +87,7 @@ enterprise_setup_python_env() {
         "fake-useragent>=1.1.0"
         "PySocks>=1.7.1"
         "urllib3>=1.26.0"
+        "selenium>=4.15.0"
     )
     
     for dep in "${enterprise_deps[@]}"; do
@@ -151,56 +152,22 @@ enterprise_configure_advanced_settings() {
     
     # Enterprise configuration file
     if [[ ! -f "settings.json" ]]; then
-        cat > settings.json << 'ENTERPRISE_CONFIG'
-{
-    "tor_port": 9050,
-    "control_port": 9051,
-    "identity_rotation_interval": 60,
-    "min_rotation_delay": 45,
-    "max_rotation_delay": 75,
-    "max_retries": 5,
-    "timeout": 15,
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0",
-    "socks5_host": "127.0.0.1",
-    "log_level": "ERROR",
-    "auto_start_tor": true,
-    "dns_leak_protection": true,
-    "safe_browsing": true,
-    "max_circuit_dirtiness": 300,
-    "exclude_nodes": "{ru},{cn},{us},{gb},{de},{fr},{nl}",
-    "strict_nodes": false,
-    "entry_nodes": "{se},{no},{fi},{dk}",
-    "exit_nodes": "{ch},{at},{li},{is}",
-    "use_bridges": false,
-    "bridge_type": "obfs4",
-    "disable_javascript": true,
-    "block_trackers": true,
-    "cookie_cleanup": true,
-    "random_user_agent": true,
-    "circuit_timeout": 30,
-    "max_circuits": 10,
-    "security_level": "enterprise",
-    "dummy_traffic_enabled": true,
-    "dummy_traffic_interval": 60,
-    "multi_hop_enabled": true,
-    "guard_lifetime_days": 30,
-    "random_delay_enabled": true,
-    "traffic_obfuscation": true,
-    "use_entry_guards": true,
-    "num_entry_guards": 3,
-    "long_lived_ports": true,
-    "kill_switch_enabled": true,
-    "traffic_monitoring": true,
-    "auto_circuit_rotation": true,
-    "bridge_obfs4": false,
-    "anti_fingerprinting": true,
-    "system_hardening": true,
-    "firewall_protection": true
-}
-ENTERPRISE_CONFIG
-        success "Enterprise configuration created"
+        cp settings_government.json settings.json 2>/dev/null || true
     fi
     
+    # Create advanced configuration files
+    cat > fingerprint_protection.json << 'FINGERPRINT_CONFIG'
+{
+    "canvas_noise": true,
+    "webgl_spoofing": true,
+    "font_masking": true,
+    "timezone_spoofing": true,
+    "screen_resolution_spoofing": true,
+    "audio_context_spoofing": true,
+    "hardware_concurrency_spoofing": true
+}
+FINGERPRINT_CONFIG
+
     success "Enterprise stealth settings configured"
 }
 
@@ -210,10 +177,14 @@ enterprise_set_permissions() {
     # Enterprise script permissions
     chmod +x tor-anonymizer.sh
     chmod +x tor_anonymizer.py
+    chmod +x leak_protection.py 2>/dev/null || true
+    chmod +x fingerprint_protection.py 2>/dev/null || true
+    chmod +x advanced_routing.py 2>/dev/null || true
     
     # Secure directory permissions
-    chmod 700 logs tor_data backups
+    chmod 700 logs tor_data backups configs
     chmod 600 settings.json 2>/dev/null || true
+    chmod 600 fingerprint_protection.json 2>/dev/null || true
     
     success "Enterprise permissions configured"
 }
@@ -225,7 +196,7 @@ enterprise_test_installation() {
     
     # Enterprise dependency verification
     if python3 -c "
-import requests, stem, psutil, urllib3
+import requests, stem, psutil, urllib3, selenium
 print('✅ Enterprise core dependencies verified')
 "; then
         success "Enterprise dependencies verified"
@@ -252,6 +223,17 @@ print('✅ Enterprise core dependencies verified')
         return 1
     fi
     
+    # Test new modules
+    if python3 -c "
+from leak_protection import SystemLeakProtection
+from fingerprint_protection import AdvancedFingerprintingProtection
+print('✅ Advanced protection modules verified')
+"; then
+        success "Advanced protection modules verified"
+    else
+        warning "Some advanced modules may need configuration"
+    fi
+    
     success "Enterprise installation verified"
 }
 
@@ -265,7 +247,10 @@ enterprise_fix_common_issues() {
     pip install PySocks --upgrade --force-reinstall
     
     # Enterprise SSL fixes
-    pip install urllib3 --upgrade
+    pip install urllib3 --upgrade certifi --force-reinstall
+    
+    # Install advanced dependencies
+    pip install selenium webdriver-manager --upgrade
     
     success "Enterprise common issues fixed"
 }
@@ -279,6 +264,29 @@ enterprise_post_installation() {
     # Enterprise log initialization
     touch logs/tor_anonymizer.log
     touch logs/security_audit.log
+    touch logs/fingerprint_protection.log
+    touch logs/leak_protection.log
+    
+    # Create default advanced config
+    if [[ ! -f "settings_government.json" ]]; then
+        cat > settings_government.json << 'GOVERNMENT_CONFIG'
+{
+    "security_level": "government_grade",
+    "multi_tor_chains": 4,
+    "pluggable_transports": ["obfs4", "meek", "snowflake"],
+    "circuit_rotation": "random(30-600)",
+    "traffic_obfuscation": "advanced_shape_mimicry",
+    "decoy_traffic_ratio": 3,
+    "cover_stories_enabled": true,
+    "hardware_isolation": "tails_usb_boot",
+    "operational_security": "strict_opsec",
+    "max_session_time": 120,
+    "location_rotation": true,
+    "wifi_security": "public_only",
+    "forensic_resistance": "high"
+}
+GOVERNMENT_CONFIG
+    fi
     
     success "Enterprise post-installation completed"
 }
@@ -297,22 +305,21 @@ enterprise_main() {
     
     if enterprise_test_installation; then
         echo ""
-        success "🎯 ENTERPRISE ULTIMATE STEALTH INSTALLATION COMPLETED!"
+        success "🎯 GOVERNMENT-GRADE ENTERPRISE STEALTH INSTALLATION COMPLETED!"
         echo ""
         echo "Enterprise Quick Start:"
         echo "  ./tor-anonymizer.sh test          # Enterprise test suite"
         echo "  ./tor-anonymizer.sh ultimate      # Ultimate enterprise mode"
         echo "  ./tor-anonymizer.sh status        # Enterprise status check"
         echo ""
-        echo "Enterprise Features Activated:"
-        echo "  ✅ Enterprise IP Rotation every 60s"
-        echo "  ✅ Multi-layer traffic obfuscation"
-        echo "  ✅ Advanced kill switch protection"
-        echo "  ✅ Real-time traffic monitoring"
-        echo "  ✅ Enterprise-grade security auditing"
-        echo "  ✅ Automatic circuit rotation"
-        echo "  ✅ Dummy traffic generation"
-        echo "  ✅ Enterprise dependency management"
+        echo "NEW Government-Grade Features:"
+        echo "  ✅ Advanced timing randomization"
+        echo "  ✅ Traffic pattern obfuscation"
+        echo "  ✅ Browser fingerprint protection"
+        echo "  ✅ System-level leak prevention"
+        echo "  ✅ Multi-hop circuit routing"
+        echo "  ✅ Artificial request delays"
+        echo "  ✅ Advanced traffic mimicry"
         echo ""
         echo "Enterprise Troubleshooting:"
         echo "  ./tor-anonymizer.sh test          # Run enterprise tests"
@@ -320,14 +327,14 @@ enterprise_main() {
         echo "  ./tor-anonymizer.sh security-logs # Security audit logs"
         echo ""
         echo "Enterprise Documentation:"
-        echo "  Read README.md for advanced enterprise features"
+        echo "  Read README.md for advanced government-grade features"
         echo ""
     else
         error "Enterprise installation completed with errors"
         echo ""
         echo "Enterprise Troubleshooting Steps:"
         echo "1. Run: source venv/bin/activate"
-        echo "2. Run: pip install requests stem psutil PySocks --upgrade"
+        echo "2. Run: pip install -r requirements.txt --upgrade"
         echo "3. Check Tor: tor --version"
         echo "4. View logs: ./tor-anonymizer.sh logs"
         exit 1

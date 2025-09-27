@@ -520,13 +520,14 @@ class UltimateTorAnonymizer:
                     time.sleep(rotation_interval)
                     
                     if self.enterprise_identity_rotation():
-                        ip = stealth.get_enterprise_stealth_ip()
+                        ip = self.get_enterprise_stealth_ip()
                         if ip:
                             uptime = int(time.time() - self.start_time)
                             status = f"{Colors.GREEN}🔄 Government-grade IP: {ip} | Rotations: {self.rotation_count} | Uptime: {uptime}s{Colors.END}"
                             print(status)
-                except:
-                    pass
+                except Exception as e:
+                    print(f"⚠️ Circuit rotation error: {e}")
+                    time.sleep(30)  # Wait before retrying
         
         self.circuit_rotation_thread = threading.Thread(target=government_circuit_rotator, daemon=True)
         self.circuit_rotation_thread.start()
@@ -915,13 +916,29 @@ class UltimateTorAnonymizer:
     def run_continuous_enterprise_stealth(self) -> None:
         """Run continuous government-grade stealth mode"""
         print("🚀 Starting continuous government-grade stealth operations...")
+        print(f"✅ Session active: {self.session is not None}")
+        print(f"✅ Controller active: {self.controller is not None}")
+        print(f"✅ Running flag: {self.is_running}")
         
         try:
+            cycle_count = 0
             while self.is_running:
-                # Advanced status updates with routing info
+                cycle_count += 1
+                
+                # Status update ogni 30 secondi
                 current_time = time.time()
-                if current_time - self.start_time >= 60 and int(current_time - self.start_time) % 60 == 0:
-                    status_info = f"📊 Government-grade Status: {self.rotation_count} rotations | Running: {int(current_time - self.start_time)}s"
+                if cycle_count % 30 == 0:  # Ogni 30 cicli (circa 30 secondi)
+                    status_info = f"📊 Government-grade Status: {self.rotation_count} rotations | Running: {int(current_time - self.start_time)}s | Cycles: {cycle_count}"
+                    
+                    # Test di connettività rapido
+                    try:
+                        ip = self.get_enterprise_stealth_ip()
+                        if ip:
+                            status_info += f" | Current IP: {ip}"
+                        else:
+                            status_info += " | IP: ❌ Unavailable"
+                    except:
+                        status_info += " | IP: ⚠️ Error"
                     
                     # Add advanced routing info if available
                     if self.advanced_router and ADVANCED_MODULES_AVAILABLE:
@@ -933,11 +950,30 @@ class UltimateTorAnonymizer:
                     
                     print(status_info)
                 
-                time.sleep(1)
+                time.sleep(1)  # Sleep principale
+                
+                # Controllo di salute ogni 10 cicli
+                if cycle_count % 10 == 0:
+                    if not self.is_running:
+                        print("🛑 Running flag set to False, stopping...")
+                        break
+                        
+                    # Verifica che la sessione sia ancora valida
+                    try:
+                        if self.session:
+                            # Test di connettività leggero
+                            self.session.get('http://httpbin.org/ip', timeout=5, verify=False)
+                    except:
+                        print("⚠️ Session connectivity check failed")
                 
         except KeyboardInterrupt:
-            print("\n🛑 Government-grade stealth mode interrupted")
+            print("\n🛑 Government-grade stealth mode interrupted by user")
+        except Exception as e:
+            print(f"❌ Unexpected error in continuous mode: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
+            print("🔴 Shutting down continuous enterprise stealth mode...")
             self.stop_enterprise_stealth_mode()
 
 def main():
@@ -950,13 +986,22 @@ def main():
     parser.add_argument('--rotate-now', action='store_true', help='Force immediate IP rotation')
     parser.add_argument('--mode', choices=['stealth', 'advanced', 'ultimate', 'enterprise', 'government'], 
                        default='government', help='Operation mode')
+    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     
     args = parser.parse_args()
     
     try:
+        print("🔧 Initializing Government-Grade Tor Anonymizer...")
         stealth = UltimateTorAnonymizer(args.config)
         
+        if args.debug:
+            print("🐛 Debug mode enabled")
+            # Abilita logging più dettagliato
+            logging.getLogger().setLevel(logging.DEBUG)
+        
+        print("🚀 Starting ultimate enterprise mode...")
         if not stealth.start_ultimate_enterprise_mode():
+            print("❌ Failed to start ultimate enterprise mode")
             sys.exit(1)
         
         if args.test:
@@ -975,12 +1020,16 @@ def main():
                 print(f"✅ Government-grade IP rotated: {ip}")
             stealth.stop_enterprise_stealth_mode()
         else:
+            print("🌐 Entering continuous enterprise stealth mode...")
+            print("💡 Press Ctrl+C to exit gracefully")
             stealth.run_continuous_enterprise_stealth()
             
     except KeyboardInterrupt:
-        print("\n🎯 Government-grade stealth session completed")
+        print("\n🎯 Government-grade stealth session completed by user")
     except Exception as e:
         print(f"❌ Government-grade stealth error: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":

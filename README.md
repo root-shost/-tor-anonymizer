@@ -2,7 +2,6 @@
 
 **Ultimate Multi-Layer Stealth Protection System**
 
-![Version](https://img.shields.io/badge/version-3.0.0-enterprise-blue)
 ![Security](https://img.shields.io/badge/security-enterprise%20grade-red)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20WSL-lightgrey)

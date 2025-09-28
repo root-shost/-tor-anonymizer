@@ -119,12 +119,12 @@ class UltimateTorAnonymizer:
 ║                 ENTERPRISE STEALTH MODE                      ║
 ║                                                              ║
 ║          🔒 IP Rotation: {rotation_interval}s (Randomized)   ║
-║          🌐 Multi-Hop Circuit: Enterprise Grade            ║
-║          🚫 Dummy Traffic: Advanced Obfuscation            ║
-║          🛡️  Entry Guards: {num_guards} Nodes (Persistent)  ║
-║          🔥 Kill Switch: Active                            ║
-║          📊 Traffic Monitoring: Real-time                  ║
-║          🛡️  Security Level: {security_level.upper():<12}           ║
+║          🌐 Multi-Hop Circuit: Enterprise Grade              ║
+║          🚫 Dummy Traffic: Advanced Obfuscation              ║
+║          🛡️  Entry Guards: {num_guards} Nodes (Persistent)   ║
+║          🔥 Kill Switch: Active                              ║
+║          📊 Traffic Monitoring: Real-time                    ║
+║          🛡️  Security Level: {security_level.upper():<12}    ║
 ║                                                              ║
 ║          Author: {self.author}                               ║
 ║         GitHub: github.com/root-shost/tor-anonymizer         ║

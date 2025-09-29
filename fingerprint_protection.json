@@ -5,5 +5,18 @@
     "timezone_spoofing": true,
     "screen_resolution_spoofing": true,
     "audio_context_spoofing": true,
-    "hardware_concurrency_spoofing": true
+    "hardware_concurrency_spoofing": true,
+    "language_spoofing": true,
+    "platform_spoofing": true,
+    "webrtc_protection": true,
+    "battery_api_spoofing": true,
+    "device_memory_spoofing": true,
+    "connection_api_spoofing": true,
+    "user_agent_randomization": true,
+    "accept_language_randomization": true,
+    "http_headers_protection": true,
+    "cookie_isolation": true,
+    "local_storage_isolation": true,
+    "session_storage_isolation": true,
+    "indexed_db_isolation": true
 }

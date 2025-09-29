@@ -1,31 +1,41 @@
 #!/bin/bash
-# TOR ANONYMIZER LAUNCHER v3.0 - ULTIMATE ENTERPRISE VERSION
-set -euo pipefail
+# TOR ANONYMIZER LAUNCHER v3.0.1 - ULTIMATE ENTERPRISE STEALTH MODE - FIXED
 
-# Color definitions
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly BLUE='\033[0;34m'
-readonly PURPLE='\033[0;35m'
-readonly CYAN='\033[0;36m'
-readonly ORANGE='\033[0;33m'
-readonly NC='\033[0m'
+# ANSI color codes
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+BLUE='\033[0;94m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+RED='\033[0;91m'
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+END='\033[0m'
 
-# Enterprise Configuration
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly CONFIG_FILE="${SCRIPT_DIR}/settings.json"
-readonly LOG_FILE="${SCRIPT_DIR}/logs/tor_anonymizer.log"
-readonly SECURITY_LOG="${SCRIPT_DIR}/logs/security_audit.log"
-readonly VENV_DIR="${SCRIPT_DIR}/venv"
-readonly TOR_DATA_DIR="${SCRIPT_DIR}/tor_data"
-readonly BACKUP_DIR="${SCRIPT_DIR}/backups"
+# Script info
+SCRIPT_NAME="tor-anonymizer.sh"
+SCRIPT_VERSION="3.0.1"
+SCRIPT_AUTHOR="root-shost"
+GITHUB_URL="github.com/root-shost/tor-anonymizer"
 
-print_enterprise_banner() {
-    echo -e "${PURPLE}"
-    cat << "ENTERPRISE_BANNER"
+# Configuration
+TOR_ANONYMIZER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_DIR="$TOR_ANONYMIZER_DIR/logs"
+CONFIG_FILE="$TOR_ANONYMIZER_DIR/settings.json"
+PID_FILE="$TOR_ANONYMIZER_DIR/tor-anonymizer.pid"
+LOG_FILE="$LOG_DIR/tor-anonymizer.log"
+SECURITY_LOG="$LOG_DIR/security-audit.log"
+PYTHON_SCRIPT="$TOR_ANONYMIZER_DIR/tor_anonymizer.py"
+
+# Create directories
+mkdir -p "$LOG_DIR"
+
+print_banner() {
+    clear
+    echo -e "${PURPLE}${BOLD}"
+    cat << "EOF"
 ╔══════════════════════════════════════════════════════════════╗
-║               ULTIMATE TOR ANONYMIZER v3.0.0                 ║
+║               ULTIMATE TOR ANONYMIZER v3.0.1                 ║
 ║                   ENTERPRISE STEALTH MODE                    ║
 ║                                                              ║
 ║          🔒 Multi-Layer Protection                          ║
@@ -36,394 +46,296 @@ print_enterprise_banner() {
 ║          Author: root-shost                                  ║
 ║         GitHub: github.com/root-shost/tor-anonymizer         ║
 ╚══════════════════════════════════════════════════════════════╝
-ENTERPRISE_BANNER
-    echo -e "${NC}"
+EOF
+    echo -e "${END}"
 }
 
-# Enhanced logging functions
-log() { echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1" | tee -a "$LOG_FILE"; }
-error() { echo -e "${RED}[ENTERPRISE ERROR]${NC} $1" | tee -a "$LOG_FILE" >&2; }
-warning() { echo -e "${YELLOW}[ENTERPRISE WARNING]${NC} $1" | tee -a "$LOG_FILE"; }
-success() { echo -e "${GREEN}[ENTERPRISE SUCCESS]${NC} $1" | tee -a "$LOG_FILE"; }
-info() { echo -e "${CYAN}[ENTERPRISE INFO]${NC} $1" | tee -a "$LOG_FILE"; }
-security_alert() { echo -e "${ORANGE}[SECURITY ALERT]${NC} $1" | tee -a "$SECURITY_LOG"; }
+log_message() {
+    local level="$1"
+    local message="$2"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] $message" >> "$LOG_FILE"
+    
+    case $level in
+        "INFO") echo -e "${BLUE}[INFO]${END} $message" ;;
+        "SUCCESS") echo -e "${GREEN}[SUCCESS]${END} $message" ;;
+        "WARNING") echo -e "${YELLOW}[WARNING]${END} $message" ;;
+        "ERROR") echo -e "${RED}[ERROR]${END} $message" ;;
+        *) echo "$message" ;;
+    esac
+}
 
-# Enterprise functions
-setup_enterprise_environment() {
-    log "Setting up enterprise environment..."
+check_dependencies() {
+    log_message "INFO" "Checking enterprise dependencies..."
     
-    mkdir -p "${SCRIPT_DIR}/logs" "${TOR_DATA_DIR}" "${BACKUP_DIR}"
+    # Check Python
+    if ! command -v python3 &> /dev/null; then
+        log_message "ERROR" "Python3 not found. Please install: sudo apt-get install python3"
+        exit 1
+    fi
     
-    # Create enterprise directory structure
-    local dirs=("logs" "tor_data" "backups" "configs" "cache")
-    for dir in "${dirs[@]}"; do
-        mkdir -p "${SCRIPT_DIR}/${dir}"
+    # Check Tor
+    if ! command -v tor &> /dev/null; then
+        log_message "WARNING" "Tor not found. Attempting to install..."
+        sudo apt-get update && sudo apt-get install -y tor || {
+            log_message "ERROR" "Failed to install Tor. Please install manually: sudo apt-get install tor"
+            exit 1
+        }
+    fi
+    
+    # Check Python packages
+    local packages=("requests" "stem" "psutil" "socks")
+    for package in "${packages[@]}"; do
+        if ! python3 -c "import $package" 2>/dev/null; then
+            log_message "WARNING" "Python package $package not found. Installing..."
+            pip3 install "$package" || {
+                log_message "ERROR" "Failed to install $package. Please install manually: pip3 install $package"
+                exit 1
+            }
+        fi
     done
     
-    # Set secure permissions
-    chmod 700 "${SCRIPT_DIR}/logs" "${SCRIPT_DIR}/tor_data"
-    chmod 600 "${LOG_FILE}" 2>/dev/null || true
-    
-    success "Enterprise environment configured"
+    log_message "SUCCESS" "All enterprise dependencies available"
 }
 
-activate_enterprise_venv() {
-    if [[ -d "$VENV_DIR" ]]; then
-        source "$VENV_DIR/bin/activate"
+check_tor_service() {
+    log_message "INFO" "Checking Tor service status..."
+    
+    if systemctl is-active --quiet tor; then
+        log_message "SUCCESS" "Tor service is running"
         return 0
     else
-        error "Enterprise virtual environment not found. Run ./INSTALL.sh first."
-        return 1
-    fi
-}
-
-check_enterprise_installation() {
-    if [[ ! -d "$VENV_DIR" ]]; then
-        error "Enterprise installation incomplete. Please run: ./INSTALL.sh"
-        return 1
-    fi
-    
-    if [[ ! -f "settings.json" ]]; then
-        error "Enterprise configuration missing. Please run: ./INSTALL.sh"
-        return 1
-    fi
-    
-    # Check for enterprise dependencies
-    local missing_deps=()
-    for dep in python3 tor curl netstat; do
-        if ! command -v "$dep" &> /dev/null; then
-            missing_deps+=("$dep")
-        fi
-    done
-    
-    if [[ ${#missing_deps[@]} -gt 0 ]]; then
-        error "Missing enterprise dependencies: ${missing_deps[*]}"
-        return 1
-    fi
-    
-    return 0
-}
-
-check_enterprise_tor_connection() {
-    log "Testing enterprise Tor connection..."
-    
-    local test_services=(
-        "https://check.torproject.org"
-        "http://httpbin.org/ip"
-        "http://icanhazip.com"
-    )
-    
-    for service in "${test_services[@]}"; do
-        if curl --socks5-hostname localhost:9050 --max-time 10 --retry 2 -s "$service" &>/dev/null; then
-            success "Enterprise Tor connection verified: $service"
+        log_message "WARNING" "Tor service is not running. Starting..."
+        sudo systemctl start tor
+        
+        if systemctl is-active --quiet tor; then
+            log_message "SUCCESS" "Tor service started successfully"
             return 0
+        else
+            log_message "ERROR" "Failed to start Tor service"
+            return 1
         fi
-    done
-    
-    # Advanced fallback test
-    if netstat -tuln 2>/dev/null | grep -q ":9050"; then
-        warning "Tor port 9050 listening but connection tests failed"
-        return 1
-    else
-        error "Enterprise Tor connection completely failed"
-        return 1
     fi
 }
 
-enterprise_security_audit() {
-    log "Running enterprise security audit..."
+setup_enterprise_environment() {
+    log_message "INFO" "Setting up enterprise environment..."
     
-    local audit_passed=0
-    local audit_total=0
+    # Create necessary directories
+    mkdir -p "$LOG_DIR"
     
-    # Audit 1: File permissions
-    ((audit_total++))
-    if [[ $(stat -c %a "$SCRIPT_DIR" 2>/dev/null) -le 755 ]]; then
-        ((audit_passed++))
-        info "Directory permissions: OK"
-    else
-        security_alert "Insecure directory permissions"
+    # Set proper permissions
+    chmod 755 "$TOR_ANONYMIZER_DIR"
+    chmod 644 "$CONFIG_FILE" 2>/dev/null || true
+    
+    # Verify Python script exists
+    if [[ ! -f "$PYTHON_SCRIPT" ]]; then
+        log_message "ERROR" "Main Python script not found: $PYTHON_SCRIPT"
+        exit 1
     fi
     
-    # Audit 2: Tor process
-    ((audit_total++))
-    if pgrep -x tor &>/dev/null; then
-        ((audit_passed++))
-        info "Tor process: RUNNING"
-    else
-        security_alert "Tor process not running"
-    fi
+    # Make Python script executable
+    chmod +x "$PYTHON_SCRIPT"
     
-    # Audit 3: Network isolation
-    ((audit_total++))
-    if ! netstat -tuln 2>/dev/null | grep -q -E ":(80|443|53).*LISTEN"; then
-        ((audit_passed++))
-        info "Network isolation: OK"
-    else
-        security_alert "Potential network isolation issue"
-    fi
-    
-    success "Enterprise security audit: $audit_passed/$audit_total passed"
+    log_message "SUCCESS" "Enterprise environment configured"
 }
 
 start_enterprise_service() {
-    if ! check_enterprise_installation; then
-        return 1
-    fi
+    log_message "INFO" "Starting Enterprise Tor Anonymizer..."
     
-    if pgrep -f "python3.*tor_anonymizer.py" > /dev/null; then
-        warning "Enterprise Tor Anonymizer is already running"
-        show_enterprise_status
-        return 0
-    fi
-    
-    log "Starting Enterprise Tor Anonymizer..."
-    
-    # Force enterprise virtual environment activation
-    if ! activate_enterprise_venv; then
-        error "Failed to activate enterprise virtual environment"
-        return 1
-    fi
-    
-    # Enterprise security audit
-    enterprise_security_audit
-    
-    # Check enterprise Tor connection
-    if ! check_enterprise_tor_connection; then
-        warning "Enterprise Tor not running. Attempting advanced startup..."
-        sudo systemctl start tor 2>/dev/null || true
-        sleep 8
-    fi
-    
-    # Start the enterprise application
-    log "Launching Enterprise Tor Anonymizer..."
-    if nohup python3 tor_anonymizer.py --mode enterprise >> "$LOG_FILE" 2>&1 & then
-        local pid=$!
-        sleep 8
-        
+    if [[ -f "$PID_FILE" ]]; then
+        local pid=$(cat "$PID_FILE")
         if kill -0 "$pid" 2>/dev/null; then
-            success "Enterprise Tor Anonymizer started (PID: $pid)"
-            info "Enterprise Log file: $LOG_FILE"
-            info "Security Audit log: $SECURITY_LOG"
-            
-            # Monitor startup
-            sleep 3
-            show_enterprise_status
+            log_message "WARNING" "Enterprise service already running (PID: $pid)"
             return 0
         else
-            error "Enterprise process died immediately. Check logs: $LOG_FILE"
-            if [[ -f "$LOG_FILE" ]]; then
-                error "Last enterprise errors from log:"
-                tail -15 "$LOG_FILE" | while read line; do
-                    error "  $line"
-                done
-            fi
-            return 1
+            rm -f "$PID_FILE"
         fi
+    fi
+    
+    # Start the service
+    python3 "$PYTHON_SCRIPT" --mode "$1" >> "$LOG_FILE" 2>&1 &
+    local service_pid=$!
+    
+    echo "$service_pid" > "$PID_FILE"
+    
+    # Wait a bit and check if it's still running
+    sleep 3
+    if kill -0 "$service_pid" 2>/dev/null; then
+        log_message "SUCCESS" "Enterprise service started (PID: $service_pid)"
+        return 0
     else
-        error "Failed to start Enterprise Tor Anonymizer"
+        log_message "ERROR" "Enterprise service failed to start"
+        rm -f "$PID_FILE"
         return 1
     fi
 }
 
 stop_enterprise_service() {
-    log "Stopping Enterprise Tor Anonymizer..."
+    log_message "INFO" "Stopping Enterprise Tor Anonymizer..."
     
-    # Graceful shutdown
-    pkill -f "python3.*tor_anonymizer.py" || true
-    sleep 3
-    
-    # Forceful shutdown if needed
-    if pgrep -f "python3.*tor_anonymizer.py" > /dev/null; then
-        warning "Enterprise graceful shutdown failed, forcing..."
-        pkill -9 -f "python3.*tor_anonymizer.py" || true
-        sleep 2
-    fi
-    
-    # Verify shutdown
-    if pgrep -f "python3.*tor_anonymizer.py" > /dev/null; then
-        error "Enterprise shutdown failed - process still running"
-        return 1
+    if [[ -f "$PID_FILE" ]]; then
+        local pid=$(cat "$PID_FILE")
+        
+        if kill -0 "$pid" 2>/dev/null; then
+            kill "$pid"
+            sleep 2
+            
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -9 "$pid"
+                sleep 1
+            fi
+            
+            rm -f "$PID_FILE"
+            log_message "SUCCESS" "Enterprise service stopped"
+        else
+            rm -f "$PID_FILE"
+            log_message "WARNING" "PID file existed but process was not running"
+        fi
     else
-        success "Enterprise Tor Anonymizer stopped"
-        return 0
+        log_message "WARNING" "No PID file found - attempting to kill any running processes"
+        pkill -f "python3.*tor_anonymizer.py" && log_message "SUCCESS" "Killed running processes" || log_message "INFO" "No processes found"
     fi
+    
+    # Ensure Tor service remains running
+    sudo systemctl start tor 2>/dev/null || true
 }
 
 restart_enterprise_service() {
-    log "Restarting Enterprise Tor Anonymizer..."
+    log_message "INFO" "Restarting Enterprise Tor Anonymizer..."
     stop_enterprise_service
-    sleep 5
-    start_enterprise_service
+    sleep 2
+    start_enterprise_service "$1"
 }
 
-show_enterprise_status() {
-    log "Enterprise Service Status Check..."
+check_enterprise_status() {
+    log_message "INFO" "Enterprise Service Status Check..."
     
-    local status="STOPPED"
-    local color="$RED"
-    local pid=""
-    
-    if pgrep -f "python3.*tor_anonymizer.py" > /dev/null; then
-        status="RUNNING"
-        color="$GREEN"
-        pid=$(pgrep -f "python3.*tor_anonymizer.py")
-    fi
-    
-    echo -e "   Service Status: ${color}${status}${NC}"
-    
-    if [[ -n "$pid" ]]; then
-        echo -e "   Process PID: $pid"
-        echo -e "   Log File: $LOG_FILE"
-    fi
-    
-    # Enterprise Tor connection status
-    if check_enterprise_tor_connection; then
-        local current_ip
-        current_ip=$(curl --socks5-hostname localhost:9050 -s http://icanhazip.com 2>/dev/null || echo "Unknown")
-        echo -e "   Tor Proxy: ${GREEN}socks5://127.0.0.1:9050${NC}"
-        echo -e "   Current IP: ${GREEN}$current_ip${NC}"
+    if [[ -f "$PID_FILE" ]]; then
+        local pid=$(cat "$PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            log_message "SUCCESS" "Service Status: RUNNING (PID: $pid)"
+            
+            # Test Tor connection
+            log_message "INFO" "Testing enterprise Tor connection..."
+            if python3 -c "
+import requests, time
+try:
+    session = requests.Session()
+    session.proxies = {'http': 'socks5://127.0.0.1:9050', 'https': 'socks5://127.0.0.1:9050'}
+    session.verify = False
+    response = session.get('http://httpbin.org/ip', timeout=10)
+    if response.status_code == 200:
+        print('✅ Tor connection: ACTIVE')
+        print(f'🌐 Current IP: {response.text.strip()}')
+    else:
+        print('⚠️ Tor connection: UNSTABLE')
+except Exception as e:
+    print('❌ Tor connection: FAILED')
+"; then
+                true
+            fi
+            
+            return 0
+        else
+            rm -f "$PID_FILE"
+            log_message "ERROR" "Service Status: STOPPED (stale PID file)"
+            return 1
+        fi
     else
-        echo -e "   Tor Proxy: ${RED}NOT AVAILABLE${NC}"
+        log_message "ERROR" "Service Status: STOPPED"
+        return 1
     fi
-    
-    # Enterprise security status
-    enterprise_security_audit
 }
 
 show_enterprise_logs() {
+    log_message "INFO" "Tailing enterprise log file..."
     if [[ -f "$LOG_FILE" ]]; then
-        log "Displaying enterprise logs (Ctrl+C to exit)..."
         tail -f "$LOG_FILE"
     else
-        error "Enterprise log file not found: $LOG_FILE"
-        info "No enterprise logs available yet. Start the service first."
+        log_message "WARNING" "Log file not found: $LOG_FILE"
     fi
 }
 
 show_security_logs() {
+    log_message "INFO" "Showing security audit logs..."
     if [[ -f "$SECURITY_LOG" ]]; then
-        log "Displaying security audit logs..."
-        tail -50 "$SECURITY_LOG"
+        cat "$SECURITY_LOG"
     else
-        warning "Security audit log not found: $SECURITY_LOG"
+        log_message "WARNING" "Security log file not found: $SECURITY_LOG"
     fi
 }
 
 run_enterprise_test() {
-    log "Running enterprise comprehensive test..."
+    log_message "INFO" "Running enterprise test suite..."
     
-    if ! check_enterprise_installation; then
-        return 1
-    fi
-    
-    activate_enterprise_venv
-    
-    echo "=== ENTERPRISE TEST SUITE ==="
-    
-    # Test 1: Tor connection
-    if check_enterprise_tor_connection; then
-        success "Enterprise Tor connection: OK"
+    # Test basic connectivity
+    if check_tor_service; then
+        log_message "SUCCESS" "Tor service test: PASSED"
     else
-        error "Enterprise Tor connection: FAILED"
+        log_message "ERROR" "Tor service test: FAILED"
+        return 1
     fi
     
-    # Test 2: Python module
-    if python3 tor_anonymizer.py --test; then
-        success "Enterprise Python module: OK"
+    # Test Python script
+    if python3 -c "import sys; sys.path.append('$TOR_ANONYMIZER_DIR'); from tor_anonymizer import UltimateTorAnonymizer; print('✅ Python import test: PASSED')"; then
+        log_message "SUCCESS" "Python import test: PASSED"
     else
-        error "Enterprise Python module: FAILED"
-    fi
-    
-    # Test 3: Security audit
-    enterprise_security_audit
-    
-    success "Enterprise test suite completed"
-}
-
-enterprise_emergency_stop() {
-    log "🚨 ENTERPRISE EMERGENCY STOP INITIATED!"
-    
-    # Immediate process termination
-    pkill -9 -f "python3.*tor_anonymizer.py" 2>/dev/null || true
-    pkill -9 -x tor 2>/dev/null || true
-    
-    # Clear caches
-    rm -rf "${TOR_DATA_DIR}"/* 2>/dev/null || true
-    
-    # Backup logs
-    local backup_timestamp=$(date +%Y%m%d_%H%M%S)
-    cp "$LOG_FILE" "${BACKUP_DIR}/emergency_log_${backup_timestamp}.log" 2>/dev/null || true
-    
-    success "Enterprise emergency stop completed"
-}
-
-enterprise_ultimate_mode() {
-    if ! check_enterprise_installation; then
+        log_message "ERROR" "Python import test: FAILED"
         return 1
     fi
     
-    log "Starting ULTIMATE ENTERPRISE STEALTH mode..."
-    activate_enterprise_venv
-    
-    python3 tor_anonymizer.py --mode enterprise
+    log_message "SUCCESS" "Enterprise test suite completed"
 }
 
-enterprise_advanced_mode() {
-    if ! check_enterprise_installation; then
-        return 1
-    fi
+install_enterprise_dependencies() {
+    log_message "INFO" "Installing enterprise dependencies..."
     
-    log "Starting ADVANCED ENTERPRISE mode..."
-    activate_enterprise_venv
+    # Update system
+    sudo apt-get update
     
-    python3 tor_anonymizer.py --mode advanced
+    # Install Tor
+    sudo apt-get install -y tor
+    
+    # Install Python packages
+    pip3 install requests stem psutil PySocks fake-useragent
+    
+    # Configure Tor
+    sudo systemctl enable tor
+    sudo systemctl start tor
+    
+    log_message "SUCCESS" "Enterprise installation completed"
 }
 
-enterprise_stealth_mode() {
-    if ! check_enterprise_installation; then
-        return 1
-    fi
-    
-    log "Starting ENTERPRISE STEALTH mode..."
-    activate_enterprise_venv
-    
-    python3 tor_anonymizer.py --mode stealth
+check_for_updates() {
+    log_message "INFO" "Checking for updates..."
+    # Placeholder for update check logic
+    log_message "INFO" "Update check feature coming soon"
 }
 
-enterprise_install_dependencies() {
-    log "Running enterprise installation..."
+emergency_stop() {
+    log_message "WARNING" "EMERGENCY STOP INITIATED!"
     
-    if [[ -f "INSTALL.sh" ]]; then
-        chmod +x INSTALL.sh
-        ./INSTALL.sh
-    else
-        error "ENTERPRISE INSTALL.sh not found. Please download the complete repository."
-        return 1
-    fi
+    # Kill all related processes
+    pkill -f "python3.*tor_anonymizer.py" && log_message "INFO" "Killed Python processes" || true
+    sudo systemctl stop tor && log_message "INFO" "Stopped Tor service" || true
+    
+    # Remove PID file
+    rm -f "$PID_FILE"
+    
+    # Clear proxy settings
+    unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+    
+    log_message "SUCCESS" "Emergency stop completed - all services terminated"
 }
 
-enterprise_update() {
-    log "Checking for enterprise updates..."
-    
-    # Backup current configuration
-    if [[ -f "settings.json" ]]; then
-        cp "settings.json" "settings.json.backup.$(date +%Y%m%d)"
-        success "Enterprise configuration backed up"
-    fi
-    
-    # Placeholder for update logic
-    warning "Enterprise update system in development"
-    info "Manual update recommended: git pull && ./INSTALL.sh"
-}
-
-enterprise_usage() {
-    echo -e "${PURPLE}Ultimate Enterprise Tor Anonymizer Management Script v3.0.0${NC}"
+show_usage() {
+    echo -e "${BOLD}Ultimate Enterprise Tor Anonymizer Management Script v${SCRIPT_VERSION}${END}"
     echo
     echo "Usage: $0 {start|stop|restart|status|logs|security-logs|test|install|update|emergency-stop}"
     echo "       {ultimate|advanced|stealth|help}"
     echo
-    echo "Enterprise Service Commands:"
+    echo -e "${BOLD}Enterprise Service Commands:${END}"
     echo "  start           - Start enterprise service"
     echo "  stop            - Stop enterprise service"
     echo "  restart         - Restart enterprise service"
@@ -435,75 +347,83 @@ enterprise_usage() {
     echo "  update          - Check for updates"
     echo "  emergency-stop  - Immediate emergency shutdown"
     echo
-    echo "Enterprise Stealth Modes:"
-    echo "  ultimate        - Ultimate enterprise stealth (IP rotation every 10s)"
+    echo -e "${BOLD}Enterprise Stealth Modes:${END}"
+    echo "  ultimate        - Ultimate enterprise stealth (IP rotation every 30s)"
     echo "  advanced        - Advanced enterprise mode"
     echo "  stealth         - Basic enterprise stealth"
     echo
-    echo "Enterprise Quick Start:"
+    echo -e "${BOLD}Enterprise Quick Start:${END}"
     echo "  $0 install      # Enterprise installation"
     echo "  $0 ultimate     # Ultimate enterprise mode"
     echo "  $0 status       # Enterprise status check"
     echo
 }
 
-# Main enterprise function
-enterprise_main() {
-    local command=${1:-help}
-    
-    print_enterprise_banner
-    setup_enterprise_environment
-    
-    case $command in
-        start)
-            check_enterprise_installation && start_enterprise_service
-            ;;
-        stop)
-            stop_enterprise_service
-            ;;
-        restart)
-            check_enterprise_installation && restart_enterprise_service
-            ;;
-        status)
-            show_enterprise_status
-            ;;
-        logs)
-            show_enterprise_logs
-            ;;
-        security-logs)
-            show_security_logs
-            ;;
-        test)
-            check_enterprise_installation && run_enterprise_test
-            ;;
-        install)
-            enterprise_install_dependencies
-            ;;
-        update)
-            enterprise_update
-            ;;
-        emergency-stop)
-            enterprise_emergency_stop
-            ;;
-        ultimate)
-            enterprise_ultimate_mode
-            ;;
-        advanced)
-            enterprise_advanced_mode
-            ;;
-        stealth)
-            enterprise_stealth_mode
-            ;;
-        help|--help|-h|"")
-            enterprise_usage
-            ;;
-        *)
-            error "Unknown enterprise command: $command"
-            enterprise_usage
-            exit 1
-            ;;
-    esac
-}
-
-# Run enterprise main function
-enterprise_main "$@"
+# Main execution
+case "${1:-}" in
+    start)
+        print_banner
+        setup_enterprise_environment
+        check_dependencies
+        check_tor_service
+        start_enterprise_service "${2:-enterprise}"
+        ;;
+    stop)
+        print_banner
+        setup_enterprise_environment
+        stop_enterprise_service
+        ;;
+    restart)
+        print_banner
+        setup_enterprise_environment
+        check_dependencies
+        check_tor_service
+        restart_enterprise_service "${2:-enterprise}"
+        ;;
+    status)
+        print_banner
+        setup_enterprise_environment
+        check_enterprise_status
+        ;;
+    logs)
+        setup_enterprise_environment
+        show_enterprise_logs
+        ;;
+    security-logs)
+        setup_enterprise_environment
+        show_security_logs
+        ;;
+    test)
+        print_banner
+        setup_enterprise_environment
+        run_enterprise_test
+        ;;
+    install)
+        print_banner
+        install_enterprise_dependencies
+        ;;
+    update)
+        print_banner
+        check_for_updates
+        ;;
+    emergency-stop)
+        print_banner
+        emergency_stop
+        ;;
+    ultimate|advanced|stealth)
+        print_banner
+        setup_enterprise_environment
+        check_dependencies
+        check_tor_service
+        start_enterprise_service "$1"
+        ;;
+    help|--help|-h)
+        print_banner
+        show_usage
+        ;;
+    *)
+        print_banner
+        setup_enterprise_environment
+        show_usage
+        ;;
+esac

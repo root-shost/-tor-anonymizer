@@ -89,11 +89,17 @@ class UltimateTorAnonymizer:
         self.setup_enterprise_protections()
 
     def setup_user_agent_generator(self):
-        """Setup user agent generator with fallback"""
+        """Setup user agent generator with fallback - FIXED VERSION"""
+        global UA_AVAILABLE  # ✅ AGGIUNTA CRITICA: dichiara la variabile globale
+        
         if UA_AVAILABLE:
             try:
-                return UserAgent(fallback="Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0")
-            except Exception:
+                ua = UserAgent(fallback="Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0")
+                # Test the user agent generator
+                _ = ua.random
+                return ua
+            except Exception as e:
+                print(f"⚠️ fake-useragent failed: {e}, using fallback user agents")
                 UA_AVAILABLE = False
                 return None
         else:
@@ -642,10 +648,33 @@ class UltimateTorAnonymizer:
         
         print("🔒 Initializing ultimate enterprise protections...")
         
-        # Wait for Tor to be ready first
+        # PRIMA verifica che Tor sia raggiungibile
+        print("🔍 Testing Tor connection before starting...")
+        try:
+            test_session = requests.Session()
+            test_session.proxies = {
+                'http': f'socks5://{self.config["socks5_host"]}:{self.config["tor_port"]}',
+                'https': f'socks5://{self.config["socks5_host"]}:{self.config["tor_port"]}'
+            }
+            test_session.verify = False
+            
+            response = test_session.get('http://httpbin.org/ip', timeout=10)
+            if response.status_code == 200:
+                print(f"✅ Tor connection verified: {response.text.strip()}")
+            else:
+                print(f"❌ Tor connection test failed with status: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Tor connection failed: {e}")
+            print("💡 Please ensure Tor is running: sudo systemctl start tor")
+            return False
+        
+        # Wait for Tor to be ready with improved logic
         if not self.wait_for_tor_ready():
             print("❌ Enterprise Tor connection failed - is Tor running?")
             print("💡 Start Tor with: sudo systemctl start tor")
+            print("💡 Or install Tor: sudo apt-get install tor")
             return False
         
         # Create enterprise session AFTER Tor is ready
@@ -671,29 +700,23 @@ class UltimateTorAnonymizer:
                 print("⚠️  Enterprise controller connection failed, using basic mode")
         except Exception as e:
             print(f"⚠️  Enterprise controller error: {e}, continuing in basic mode")
-    
+
         self.is_running = True
         
-        # Start enterprise services
-        try:
-            self.start_enterprise_dummy_traffic()
-        except Exception as e:
-            print(f"⚠️  Enterprise dummy traffic failed: {e}")
+        # Start enterprise services with error handling
+        services = [
+            ("dummy_traffic", self.start_enterprise_dummy_traffic),
+            ("traffic_monitoring", self.start_enterprise_traffic_monitoring),
+            ("circuit_rotation", self.start_enterprise_circuit_rotation),
+            ("kill_switch", self.enable_enterprise_kill_switch)
+        ]
         
-        try:
-            self.start_enterprise_traffic_monitoring()
-        except Exception as e:
-            print(f"⚠️  Enterprise traffic monitoring failed: {e}")
-        
-        try:
-            self.start_enterprise_circuit_rotation()
-        except Exception as e:
-            print(f"⚠️  Enterprise circuit rotation failed: {e}")
-        
-        try:
-            self.enable_enterprise_kill_switch()
-        except Exception as e:
-            print(f"⚠️  Enterprise kill switch failed: {e}")
+        for service_name, service_func in services:
+            try:
+                service_func()
+                print(f"✅ {service_name.replace('_', ' ').title()} started")
+            except Exception as e:
+                print(f"⚠️  {service_name} failed: {e}")
         
         # Run enterprise tests
         try:
@@ -703,7 +726,7 @@ class UltimateTorAnonymizer:
                 print("🎯 ENTERPRISE STEALTH MODE ACTIVATED (some tests failed)")
         except Exception as e:
             print(f"🎯 Enterprise stealth mode ACTIVATED (with limitations: {e})")
-    
+
         print("💡 Press Ctrl+C for enterprise graceful shutdown\n")
         
         return True

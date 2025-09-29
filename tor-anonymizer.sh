@@ -219,6 +219,17 @@ start_service() {
         return 1
     fi
     
+    # CORREZIONE: Configura la control port di Tor se necessario
+    log "Configuring Tor control port..."
+    if ! grep -q "ControlPort 9051" /etc/tor/torrc 2>/dev/null; then
+        warning "Tor control port not configured, attempting to configure..."
+        echo "ControlPort 9051" | sudo tee -a /etc/tor/torrc > /dev/null
+        echo "CookieAuthentication 1" | sudo tee -a /etc/tor/torrc > /dev/null
+        sudo systemctl restart tor
+        sleep 3
+        wait_for_tor
+    fi
+    
     # Start the enterprise service
     log "Launching enterprise stealth mode..."
     cd "$SCRIPT_DIR"

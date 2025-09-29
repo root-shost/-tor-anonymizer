@@ -2,7 +2,6 @@
 """
 ADVANCED CIRCUIT ROUTING MODULE - CORRETTO
 Multi-hop custom circuits and advanced Tor routing
-VERSIONE COMPLETAMENTE FUNZIONANTE
 """
 
 import random

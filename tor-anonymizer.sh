@@ -35,7 +35,7 @@ print_banner() {
 ║                                                              ║
 ║          🔒 All Enterprise Features Active                   ║
 ║          🌐 Complete Stealth Protection                      ║
-║          🛡️  Advanced Threat Prevention                     ║
+║          🛡️  Advanced Threat Prevention                      ║
 ║          📊 Real-time Monitoring & Analytics                 ║
 ║                                                              ║
 ║          Author: root-shost                                  ║

@@ -50,8 +50,8 @@ class AdvancedFingerprintingProtection:
             with open(self.config_path, 'r') as f:
                 user_config = json.load(f)
                 default_config.update(user_config)
-        except:
-            pass
+        except Exception as e:
+            self.logger.warning(f"Config load failed: {e}, using defaults")
             
         return default_config
     

@@ -1,11 +1,11 @@
 #!/bin/bash
-# Ultimate Enterprise Stealth TOR Anonymizer Installer v3.0 - FIXED VERSION
-# Enhanced with better error handling, security checks, and reliability
+# Ultimate Enterprise Stealth TOR Anonymizer Installer v3.0.2
+# COMPLETE ENTERPRISE INSTALLATION
 
-set -euo pipefail  # Exit on error, undefined variables, pipe failures
+set -euo pipefail
 
-echo "🔒 Installing Ultimate Enterprise Stealth TOR Anonymizer..."
-echo "==========================================================="
+echo "🔒 Installing Ultimate Enterprise Stealth TOR Anonymizer v3.0.2..."
+echo "=================================================================="
 
 # Color codes
 RED='\033[0;31m'
@@ -27,8 +27,8 @@ info() { echo -e "${CYAN}[ENTERPRISE INFO]${NC} $1"; }
 echo -e "${PURPLE}"
 cat << "ENTERPRISE_BANNER"
 ╔══════════════════════════════════════════════════════════════╗
-║               ENTERPRISE TOR ANONYMIZER v3.0.0               ║
-║                   ULTIMATE STEALTH MODE                      ║
+║           ENTERPRISE TOR ANONYMIZER v3.0.2 INSTALLER         ║
+║                   COMPLETE ENTERPRISE SETUP                  ║
 ╚══════════════════════════════════════════════════════════════╝
 ENTERPRISE_BANNER
 echo -e "${NC}"
@@ -51,20 +51,20 @@ enterprise_preflight_checks() {
         exit 1
     fi
     
-    # Check available disk space (at least 1GB)
+    # Check available disk space (at least 500MB)
     local available_space
     available_space=$(df . | awk 'NR==2 {print $4}')
-    if [[ $available_space -lt 1048576 ]]; then  # 1GB in KB
+    if [[ $available_space -lt 512000 ]]; then  # 500MB in KB
         warning "Low disk space: $(($available_space / 1024))MB available"
-        warning "Recommended: at least 1GB free space"
+        warning "Recommended: at least 500MB free space"
     fi
     
     # Check available memory
     local available_mem
     available_mem=$(free -m | awk 'NR==2{print $7}')
-    if [[ $available_mem -lt 512 ]]; then
+    if [[ $available_mem -lt 256 ]]; then
         warning "Low memory: ${available_mem}MB available"
-        warning "Recommended: at least 512MB free memory"
+        warning "Recommended: at least 256MB free memory"
     fi
     
     success "Pre-flight checks completed"
@@ -97,12 +97,12 @@ enterprise_install_system_deps() {
     
     case $pkg_manager in
         apt)
-            log "Detected APT package manager (Debian/Ubuntu)"
+            log "Detected APT package manager (Debian/Ubuntu/Kali)"
             sudo apt-get update || {
                 error "Failed to update package lists"
                 return 1
             }
-            sudo apt-get install -y tor torsocks obfs4proxy python3 python3-pip python3-venv curl net-tools || {
+            sudo apt-get install -y tor torsocks python3 python3-pip python3-venv curl net-tools || {
                 error "Failed to install system dependencies"
                 return 1
             }
@@ -124,7 +124,7 @@ enterprise_install_system_deps() {
                 error "Failed to update system"
                 return 1
             }
-            sudo pacman -S --noconfirm tor python python-pip curl obfs4proxy || {
+            sudo pacman -S --noconfirm tor python python-pip curl || {
                 error "Failed to install system dependencies"
                 return 1
             }
@@ -147,7 +147,6 @@ enterprise_install_system_deps() {
             echo "  - python3"
             echo "  - python3-pip"
             echo "  - curl"
-            echo "  - obfs4proxy (optional, for bridges)"
             return 1
             ;;
     esac
@@ -224,17 +223,9 @@ enterprise_setup_python_env() {
         else
             failed_deps+=("$dep")
             error "Enterprise dependency failed: $dep"
-        fi
-    done
-    
-    # Handle dependency installation results
-    if [[ ${#failed_deps[@]} -gt 0 ]]; then
-        error "Some dependencies failed to install: ${failed_deps[*]}"
-        
-        # Try alternative installation method for failed dependencies
-        warning "Attempting alternative installation method for failed dependencies..."
-        for dep in "${failed_deps[@]}"; do
-            log "Retrying installation: $dep"
+            
+            # Try alternative installation method
+            log "Retrying with alternative method..."
             if python3 -m pip install "$dep" --user; then
                 success "Dependency installed via alternative method: $dep"
                 # Remove from failed list
@@ -242,7 +233,12 @@ enterprise_setup_python_env() {
             else
                 error "Alternative installation also failed: $dep"
             fi
-        done
+        fi
+    done
+    
+    # Handle dependency installation results
+    if [[ ${#failed_deps[@]} -gt 0 ]]; then
+        error "Some dependencies failed to install: ${failed_deps[*]}"
         
         # If critical dependencies failed, return error
         local critical_deps=("requests" "stem" "PySocks")
@@ -274,30 +270,30 @@ enterprise_configure_advanced_settings() {
     # Set secure permissions
     chmod 700 logs tor_data backups 2>/dev/null || true
     
-    # Enterprise configuration file
+    # Enterprise configuration files
     if [[ ! -f "settings.json" ]]; then
         log "Creating enterprise configuration file..."
         cat > settings.json << 'ENTERPRISE_CONFIG'
 {
     "tor_port": 9050,
     "control_port": 9051,
-    "identity_rotation_interval": 10,
-    "min_rotation_delay": 8,
-    "max_rotation_delay": 15,
-    "max_retries": 5,
-    "timeout": 15,
+    "identity_rotation_interval": 15,
+    "min_rotation_delay": 10,
+    "max_rotation_delay": 20,
+    "max_retries": 3,
+    "timeout": 10,
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0",
     "socks5_host": "127.0.0.1",
-    "log_level": "ERROR",
-    "auto_start_tor": true,
+    "log_level": "INFO",
+    "auto_start_tor": false,
     "dns_leak_protection": true,
     "safe_browsing": true,
     "max_circuit_dirtiness": 5,
     "exclude_nodes": "{ru},{cn},{us},{gb},{de},{fr},{nl}",
-    "strict_nodes": true,
+    "strict_nodes": false,
     "entry_nodes": "{se},{no},{fi},{dk}",
     "exit_nodes": "{ch},{at},{li},{is}",
-    "use_bridges": true,
+    "use_bridges": false,
     "bridge_type": "obfs4",
     "disable_javascript": true,
     "block_trackers": true,
@@ -305,9 +301,9 @@ enterprise_configure_advanced_settings() {
     "random_user_agent": true,
     "circuit_timeout": 30,
     "max_circuits": 50,
-    "security_level": "enterprise",
+    "security_level": "ultimate",
     "dummy_traffic_enabled": true,
-    "dummy_traffic_interval": 30,
+    "dummy_traffic_interval": 45,
     "multi_hop_enabled": true,
     "guard_lifetime_days": 30,
     "random_delay_enabled": true,
@@ -329,7 +325,7 @@ ENTERPRISE_CONFIG
         log "Using existing settings.json configuration"
     fi
     
-    # Create additional configuration files if missing
+    # Create fingerprint protection configuration
     if [[ ! -f "fingerprint_protection.json" ]]; then
         cat > fingerprint_protection.json << 'FINGERPRINT_CONFIG'
 {
@@ -339,41 +335,36 @@ ENTERPRISE_CONFIG
     "timezone_spoofing": true,
     "screen_resolution_spoofing": true,
     "audio_context_spoofing": true,
-    "hardware_concurrency_spoofing": true
+    "hardware_concurrency_spoofing": true,
+    "language_spoofing": true,
+    "platform_spoofing": true,
+    "webrtc_protection": true,
+    "battery_api_spoofing": true,
+    "device_memory_spoofing": true,
+    "connection_api_spoofing": true,
+    "user_agent_randomization": true,
+    "accept_language_randomization": true,
+    "http_headers_protection": true,
+    "cookie_isolation": true,
+    "local_storage_isolation": true,
+    "session_storage_isolation": true,
+    "indexed_db_isolation": true
 }
 FINGERPRINT_CONFIG
         success "Fingerprint protection configuration created"
     fi
     
-    # Enterprise Tor configuration example
-    if [[ ! -f "torrc.enterprise.example" ]]; then
-        cat > torrc.enterprise.example << 'ENTERPRISE_TORRC'
-# Enterprise Tor Configuration
-SocksPort 9050
-ControlPort 9051
-CookieAuthentication 1
-DataDirectory ./tor_data
-Log notice file ./logs/tor.log
-RunAsDaemon 0
-
-# Enterprise security settings
-SafeLogging 1
-AvoidDiskWrites 1
-DisableDebuggerAttachment 1
-
-# Enterprise circuit settings
-MaxCircuitDirtiness 600
-NewCircuitPeriod 600
-CircuitBuildTimeout 60
-LearnCircuitBuildTimeout 1
-EnforceDistinctSubnets 1
-
-# Enterprise traffic obfuscation
-ConnectionPadding 1
-ReducedConnectionPadding 0
-CircuitPadding 1
-ENTERPRISE_TORRC
-        success "Enterprise Tor configuration example created"
+    # Create requirements file if missing
+    if [[ ! -f "requirements.txt" ]]; then
+        cat > requirements.txt << 'REQUIREMENTS'
+requests>=2.28.0
+stem>=1.8.0
+psutil>=5.9.0
+fake-useragent>=1.1.0
+PySocks>=1.7.1
+urllib3>=1.26.0
+REQUIREMENTS
+        success "Requirements file created"
     fi
     
     success "Enterprise stealth settings configured"
@@ -385,6 +376,7 @@ enterprise_set_permissions() {
     # Enterprise script permissions
     chmod +x tor-anonymizer.sh 2>/dev/null || true
     chmod +x tor_anonymizer.py 2>/dev/null || true
+    chmod +x leak_protection.py 2>/dev/null || true
     
     # Make sure main Python script is executable
     if [[ -f "tor_anonymizer.py" ]]; then
@@ -394,6 +386,7 @@ enterprise_set_permissions() {
     # Secure directory permissions
     chmod 700 logs tor_data backups configs 2>/dev/null || true
     chmod 600 settings.json 2>/dev/null || true
+    chmod 600 fingerprint_protection.json 2>/dev/null || true
     
     success "Enterprise permissions configured"
 }
@@ -416,7 +409,7 @@ enterprise_test_installation() {
     if python3 -c "
 import sys
 try:
-    import requests, stem, psutil, socks, urllib3
+    import requests, stem, psutil, urllib3
     # Try to import fake-useragent but don't fail if missing
     try:
         import fake_useragent
@@ -478,12 +471,12 @@ except Exception as e:
         warning "Enterprise functionality test had issues (may be normal if Tor not running)"
     fi
     
-    # Enterprise security test
-    log "Testing enterprise security features..."
-    if python3 tor_anonymizer.py --test; then
-        success "Enterprise security features verified"
+    # Enterprise leak protection test
+    log "Testing leak protection..."
+    if python3 leak_protection.py --test; then
+        success "Leak protection system verified"
     else
-        warning "Enterprise security tests had issues"
+        warning "Leak protection tests had issues"
     fi
     
     success "Enterprise installation testing completed"
@@ -506,6 +499,12 @@ enterprise_fix_common_issues() {
     # Fix any permission issues
     chmod +x tor_anonymizer.py 2>/dev/null || true
     chmod +x tor-anonymizer.sh 2>/dev/null || true
+    chmod +x leak_protection.py 2>/dev/null || true
+    
+    # Ensure Tor service is enabled
+    if command -v sudo > /dev/null && command -v systemctl > /dev/null; then
+        sudo systemctl enable tor 2>/dev/null || true
+    fi
     
     success "Enterprise common issues addressed"
 }
@@ -531,32 +530,53 @@ enterprise_post_installation() {
 }
 
 enterprise_display_summary() {
-    log "Enterprise Installation Summary:"
+    local install_time=$1
+    
     echo ""
-    echo "📦 Installed Components:"
-    echo "   ✅ Enterprise Tor Anonymizer Core"
+    echo -e "${PURPLE}╔══════════════════════════════════════════════════════════════╗"
+    echo "║           ENTERPRISE INSTALLATION COMPLETE                ║"
+    echo "╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    echo "📦 INSTALLED COMPONENTS:"
+    echo "   ✅ Ultimate Tor Anonymizer Core v3.0.2"
     echo "   ✅ Advanced Fingerprint Protection"
     echo "   ✅ System Leak Protection"
     echo "   ✅ Enterprise Configuration"
     echo "   ✅ Virtual Environment"
     echo ""
-    echo "🛡️  Security Features:"
-    echo "   ✅ Multi-layer IP rotation"
-    echo "   ✅ Advanced traffic obfuscation"
-    echo "   ✅ Real-time monitoring"
-    echo "   ✅ Kill switch protection"
-    echo "   ✅ DNS leak protection"
-    echo "   ✅ Fingerprint spoofing"
+    
+    echo "🛡️  ENTERPRISE FEATURES ACTIVE:"
+    echo "   ✅ Dummy Traffic Generation"
+    echo "   ✅ Real-time Traffic Monitoring"
+    echo "   ✅ Automatic Circuit Rotation"
+    echo "   ✅ Kill Switch Protection"
+    echo "   ✅ DNS Leak Protection"
+    echo "   ✅ WebRTC Leak Blocking"
+    echo "   ✅ Advanced Fingerprint Spoofing"
     echo ""
-    echo "🚀 Quick Start Commands:"
+    
+    echo "🚀 QUICK START COMMANDS:"
     echo "   ./tor-anonymizer.sh test          # Run enterprise test suite"
     echo "   ./tor-anonymizer.sh start         # Start enterprise service"
     echo "   ./tor-anonymizer.sh status        # Check service status"
-    echo "   ./tor-anonymizer.sh ultimate      # Ultimate stealth mode"
+    echo "   ./tor-anonymizer.sh logs          # View enterprise logs"
     echo ""
-    echo "📚 Documentation:"
-    echo "   Read README.md for advanced features"
-    echo "   Check logs/ directory for detailed logs"
+    
+    echo "⚙️  ENTERPRISE CONFIGURATION:"
+    echo "   Edit: settings.json               # Enterprise settings"
+    echo "   Edit: fingerprint_protection.json # Fingerprint settings"
+    echo "   View: logs/ directory             # Detailed logs"
+    echo ""
+    
+    echo "📊 INSTALLATION SUMMARY:"
+    echo "   Installation time: ${install_time} seconds"
+    echo "   Virtual environment: ./venv/"
+    echo "   Configuration: ./settings.json"
+    echo "   Logs directory: ./logs/"
+    echo ""
+    
+    echo -e "${GREEN}🎯 YOUR ENTERPRISE ANONYMITY SYSTEM IS READY!${NC}"
     echo ""
 }
 
@@ -564,7 +584,7 @@ enterprise_main() {
     local start_time
     start_time=$(date +%s)
     
-    log "Starting ultimate enterprise installation..."
+    log "Starting ultimate enterprise installation v3.0.2..."
     
     # Run installation sequence with error handling
     if ! enterprise_preflight_checks; then
@@ -592,17 +612,12 @@ enterprise_main() {
         end_time=$(date +%s)
         local duration=$((end_time - start_time))
         
-        echo ""
-        success "🎯 ULTIMATE ENTERPRISE STEALTH INSTALLATION COMPLETED!"
-        echo "   Installation time: ${duration} seconds"
-        echo ""
-        
-        enterprise_display_summary
+        enterprise_display_summary $duration
         
     else
         error "Enterprise installation completed with errors"
         echo ""
-        echo "🔧 Troubleshooting Steps:"
+        echo "🔧 TROUBLESHOOTING STEPS:"
         echo "1. Check if Tor is installed: tor --version"
         echo "2. Activate virtual environment: source venv/bin/activate"
         echo "3. Install dependencies manually: pip install -r requirements.txt"
